@@ -1,0 +1,16 @@
+services:
+  ros1_devel:
+    image: ros1_bridge_grpc_image
+    container_name: ros1_bridge_grpc_devel_container
+    build:
+      context: ./..
+      dockerfile: docker/ros1_dev.Dockerfile
+      args:
+        USERNAME: ${USER}
+    volumes:
+      - ../..:/home/$USER/catkin_ws/src
+    # give the container access to the host's network
+    network_mode: host
+    # enable stdin and tty to allow the user to run bash interactively
+    stdin_open: true
+    tty: true
