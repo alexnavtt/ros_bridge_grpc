@@ -1,5 +1,6 @@
 import os
 import sys
+import ast
 import rosmsg
 import rospkg
 import importlib
@@ -47,8 +48,7 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
         ros_msg_class = getattr(loaded_msg_packages[msg_package], msg_name)
 
         # TODO: Check repeated size
-        has_constants = False
-        constants = {}
+        matched_fields = []
         for element in proto_data.file_elements:
             if not isinstance(element, Message): continue
             for proto_field in element.elements:
@@ -57,11 +57,45 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
                 if isinstance(proto_field, Comment):
                     text = proto_field.text[3:].strip()
                     if text == 'Constants':
-                        has_constants = True
-                    else:
-                        name, val = text.split(' = ')
-                        constants[name] = val[:-1]
-                    continue
+                        continue
+
+                    # Make sure the constant is present in both definitions
+                    name, value = text.split(' = ')
+                    value = value[:-1] # remove semicolon
+                    if not hasattr(ros_msg_class, name):
+                        print(f'{msg_package}/{msg_name} has constant {name} in ROS2 but not in ROS1')
+                        return False
+
+                    # Make sure the constant value is the same in both definitions
+                    ros1_constant_value = getattr(ros_msg_class, name)
+                    is_numeric = is_bytes = False
+                    equivalent_constant = True
+
+                    # First try to convert the value string to a number, works for ints and floats
+                    try:
+                        float_val = float(value)
+                        is_numeric = True
+                        if float_val != ros1_constant_value:
+                            equivalent_constant = False
+                    except ValueError:
+                        pass
+
+                    # Value is not numeric - could still be bytes or string
+                    try:
+                        bytes_value = int.from_bytes(ast.literal_eval(value), byteorder='little')
+                        is_bytes = True
+                        if not is_numeric and bytes_value != ros1_constant_value:
+                            equivalent_constant = False
+                    except (TypeError, ValueError, SyntaxError):
+                        pass
+
+                    # Value is not a 'bytes' - treat as a string constant
+                    if (not is_numeric) and (not is_bytes) and (value != str(ros1_constant_value)):
+                        equivalent_constant = False
+                        
+                    if not equivalent_constant:
+                        print(f'{msg_package}/{msg_name} constant {name} has value {value} in ROS2 but value {ros1_constant_value} in ROS1')
+                        return False
 
                 # We check if each field has the same name, type, cardinality (optional, repeated, etc.), and size (if applicable)
                 elif isinstance(proto_field, Field):
@@ -82,24 +116,16 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
                         print(f'Message type {msg_package}/{ros1_msg_type}:{proto_field.name} has type {ros2_msg_type} in ROS2 but type {ros1_msg_type} in ROS1')
                         return False
                     
+                    matched_fields.append(proto_field.name)
+                    
                 else:
                     print(f'Unexpected field type received: {type(proto_field)}')
-                
-        if has_constants:
-            for name, value in constants.items():
-                if not hasattr(ros_msg_class, name):
-                    print(f'{msg_package}/{ros1_msg_type} has constant {name} in ROS2 but not in ROS1')
 
-                try:
-                    ros1_constant_value = getattr(ros_msg_class, name)
-                    if float(value) != ros1_constant_value:
-                        print(f'{msg_package}/{ros1_msg_type} constant {name} has value {value} in ROS2 but value {ros1_constant_value} in ROS1')
-                except:
-                    if value != str(ros1_constant_value):
-                        print(f'{msg_package}/{ros1_msg_type} constant {name} has value {value} in ROS2 but value {ros1_constant_value} in ROS1')
-
-            print(f'{msg_package}/{msg_name} consants matched')
-                
+        # Check for values in ROS1 but not in ROS2
+        for elem in ros_msg_class.__slots__:
+            if elem not in matched_fields:
+                print(f'{msg_package}/{msg_name} has field {elem} in ROS1 but not in ROS2')
+                return False              
         
     except FileNotFoundError:
         print(f'File {proto_filepath} seems to not exist')
@@ -110,18 +136,36 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
     
     return True
 
-def generate_cpp_conversion_code(msg_package: str, msg_type: str) -> None:
+def generate_cpp_conversion_code(msg_package: str, msg_type: str, message_class) -> None:
     class F:
         def write(self, str):
-            print(str)
+            print(str, end='')
     # with open("my_file") as f:
     f = F()
+
+    # Headers
     f.write(
         f'#include <{msg_package}.{msg_type}.pb.h>\n'
-        f'#include <{msg_package}/{msg_type}.h\n'
+        f'#include <{msg_package}/{msg_type}.h>\n'
         '\n'
-        
     )
+
+    # Add function to create subscriber and a gRPC publisher [signature (std::string, ros::NodeHandle&, grpc::ServerBuilder&)]
+    f.write(
+        f'ros::Publisher convert(const std::string& topic, ros::NodeHandle& nh, grpc::ServerBuilder& server_builder) {"{"}\n'
+        f'    auto callback = [](const {msg_package}::{msg_type}::SharedPtr msg) {"{"}\n'
+        f'        {msg_package}_proto::{msg_type} proto_message;\n'
+    )
+
+    for field in message_class.__slots__:
+        f.write(
+        f'        proto_message.set_{field}(msg->{field});\n'
+        )
+
+    f.write(
+        f'    {"}"};\n'
+    )
+    # Add function to create publisher and a gRPC subscription [signature (std::string, ros::NodeHandle&)]
 
     print('\n')
 
@@ -163,10 +207,10 @@ def main():
             # print(f'Message {msg_package}/{msg_typename} is not compatible between ROS1 and ROS2')
             continue
 
-        # generate_cpp_conversion_code(msg_package, msg_typename)
+        generate_cpp_conversion_code(msg_package, msg_typename, getattr(loaded_msg_packages[msg_package], msg_typename))
 
     print('Unable to find matching packages for:')
-    for missed_packge in missed_packages:
+    for missed_packge in sorted(missed_packages):
         print('\t', missed_packge)
 
 if __name__ == "__main__":
