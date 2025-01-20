@@ -43,6 +43,9 @@ def to_snake(name: str) -> str:
     return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
 
 def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str) -> bool:
+    if msg_package == 'std_msgs' and msg_name == 'Header':
+        return True
+
     try:
         with open(proto_filepath, 'r') as f:
             proto_data = Parser().parse(f.read())
@@ -153,6 +156,9 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, message_class,
     # with open("my_file") as f:
     f = F()
 
+    is_header: bool = msg_package == 'std_msgs' and msg_type == 'Header'
+    if not is_header: return
+
     proto_type = f'{msg_package}_proto::{msg_type}'
 
     if mode == 'ros1':
@@ -187,7 +193,9 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, message_class,
     f.write(f'void ros2grpc(const {ros_type}& ros_msg, {proto_type}& proto_msg) {"{"}\n')
     for field_idx, field_name in enumerate(message_class.__slots__):
         field_type: str = message_class._slot_types[field_idx]
-        if field_type in ros_basic_types:
+        if is_header and field_name == 'seq': 
+            continue
+        elif field_type in ros_basic_types:
             f.write(f'        proto_message.set_{field_name}(ros_msg->{field_name});\n')
         else:
             f.write(f'        ros2grpc(ros_msg->{field_name}, *proto_message.mutable_{field_name}());\n')
@@ -197,8 +205,9 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, message_class,
     f.write(f'void grpc2ros(const {proto_type}& proto_msg, {ros_type}& ros_msg) {"{"}\n')
     for field_idx, field_name in enumerate(message_class.__slots__):
         field_type: str = message_class._slot_types[field_idx]
-        if field_type in ros_basic_types:
-            # f.write(f'        proto_message.set_{field_name}(ros_msg->{field_name});\n')
+        if is_header and field_name == 'seq': 
+            continue
+        elif field_type in ros_basic_types:
             f.write(f'        ros_msg->{field_name} = proto_message.{field_name}();\n')
         else:
             f.write(f'        grpc2ros(*proto_message.{field_name}(), ros_msg->{field_name});\n')
