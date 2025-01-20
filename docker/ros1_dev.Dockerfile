@@ -36,3 +36,33 @@ RUN sudo apt install -y \
         ros-noetic-sensor-msgs \
         ros-noetic-nav-msgs \
         ros-noetic-tf2-msgs
+
+# -------------------------------------------------------------------------------------------------
+# SETUP GRPC --------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
+
+WORKDIR /home/${USERNAME}
+RUN sudo chown -R ${USERNAME} /home/${USERNAME}
+RUN sudo apt install -y build-essential autoconf libtool pkg-config git
+
+RUN export MY_INSTALL_DIR=$HOME/.local \
+    && mkdir -p $MY_INSTALL_DIR \
+    && export PATH="$MY_INSTALL_DIR/bin:$PATH" \
+    && git clone --recurse-submodules -b v1.66.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc \
+    && cd grpc \
+    && mkdir -p cmake/build \
+    && cd cmake/build \
+    && cmake -DgRPC_INSTALL=ON \
+        -DgRPC_BUILD_TESTS=OFF \
+        -DCMAKE_CXX_STANDARD=17 \
+        -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR \
+        ../.. \
+    && make -j 8 \
+    && make install
+
+# -------------------------------------------------------------------------------------------------
+# SETUP BRIDGE DEPENDENCIES -----------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
+
+RUN sudo apt install -y python3-pip \
+    && python3 -m pip install proto_schema_parser
