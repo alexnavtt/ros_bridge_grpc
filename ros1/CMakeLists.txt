@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(ros1_bridge_grpc)
 
+set(CMAKE_CXX_STANDARD 17)
+
 find_package(catkin REQUIRED COMPONENTS roscpp)
 find_package(Protobuf REQUIRED)
 find_package(gRPC REQUIRED)

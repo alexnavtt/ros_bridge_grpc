@@ -1,4 +1,5 @@
 #include <any>
+#include <thread>
 #include <type_traits>
 #include <unordered_set>
 #include <unordered_map>
@@ -16,11 +17,11 @@ public:
     BridgeServerROS1(ros::NodeHandle& nh)
     {
         // Retrieve the list of topics and types for which to create bridges
-        std::vector<std::string> registered_topics_param = nh.getParam("registered_topics", std::vector<std::string>{});
+        std::vector<std::string> registered_topics_param = nh.param("registered_topics", std::vector<std::string>{});
 
         // Retrieve the channel on which to perform gRPC communication
         const std::string grpc_address_default = "localhost:50051";
-        const std::string grpc_address = nh.getParam("grpc_address", grpc_address_default);
+        const std::string grpc_address = nh.param("grpc_address", grpc_address_default);
 
         // Create a gRPC service builder to allow all types to register their publisher callbacks with
         grpc::ServerBuilder builder;
@@ -36,21 +37,21 @@ public:
             const std::string type  = topic_name_and_type.substr(delim+1); 
 
             if (!publisher_registration_callbacks.count(type) || !subscriber_registration_callbacks.count(type)) {
-                RCLCPP_ERROR(get_logger(), "Requested type %s for topic %s is unknown to the bridge server, cannot make a connnection!", type.c_str(), topic.c_str());
+                ROS_ERROR("Requested type %s for topic %s is unknown to the bridge server, cannot make a connnection!", type.c_str(), topic.c_str());
                 continue;
             }
 
             if (registered_topics_and_types.count(topic)) {
                 if (registered_topics_and_types.at(topic) != type) {
-                    RCLCPP_ERROR(get_logger(), "Failed to register topic %s using type %s as it clashes with an existing registration with type %s",
+                    ROS_ERROR("Failed to register topic %s using type %s as it clashes with an existing registration with type %s",
                         topic.c_str(), type.c_str(), registered_topics_and_types.at(topic).c_str());
                 }
                 continue;
             }
 
             registered_topics_and_types[topic] = type;
-            publishers[topic] = publisher_registration_callbacks.at(type)(topic, *this, builder);
-            subscribers[topic] = subscriber_registration_callbacks.at(type)(topic, *this, channel);
+            publishers[topic] = publisher_registration_callbacks.at(type)(topic, nh, builder);
+            subscribers[topic] = subscriber_registration_callbacks.at(type)(topic, nh, channel);
         }
 
         // Finalize the gRPC server
@@ -71,15 +72,15 @@ public:
 
     // The actual subscribers and publishers used
     std::unordered_map<std::string, std::any> publishers;
-    std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr> subscribers;
+    std::unordered_map<std::string, std::shared_ptr<ros::Subscriber>> subscribers;
 
     // The gRPC communication channel
     std::unique_ptr<grpc::Server> grpc_server;
     std::thread grpc_server_thread;
 };
 
-std::unordered_map<std::string, BridgeServerROS2::PublisherRegisterCallback_t> BridgeServerROS2::publisher_registration_callbacks;
-std::unordered_map<std::string, BridgeServerROS2::SubscriberRegisterCallback_t> BridgeServerROS2::subscriber_registration_callbacks;
+std::unordered_map<std::string, BridgeServerROS1::PublisherRegisterCallback_t> BridgeServerROS1::publisher_registration_callbacks;
+std::unordered_map<std::string, BridgeServerROS1::SubscriberRegisterCallback_t> BridgeServerROS1::subscriber_registration_callbacks;
 
 // Inlcude our auto-generated files, which populate the registration callback variables
 // #include <bridge_types.hpp>
@@ -87,6 +88,6 @@ std::unordered_map<std::string, BridgeServerROS2::SubscriberRegisterCallback_t> 
 int main(int argc, char* argv[]) {
     ros::init(argc, argv, "bridge_server_ros1");
     ros::NodeHandle nh;
-    server = BridgeServerROS1(nh);
+    auto server = BridgeServerROS1(nh);
     ros::spin();
 }
