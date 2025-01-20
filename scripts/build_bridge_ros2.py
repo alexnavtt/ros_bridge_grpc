@@ -71,6 +71,7 @@ def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str) 
     with open(file_path, 'w') as f:
         f.write('syntax = "proto3";\n')
         f.write(f'package {msg_package}_proto;\n')
+        f.write(f'import "google/protobuf/empty.proto";\n')
 
         # Resolve the imports
         field_name: str
@@ -100,6 +101,20 @@ def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str) 
             idx += 1
         f.write('}\n')
 
+        # Add in the gRPC interface
+        f.write(
+            f'message {msg_type}Packet {"{"}\n'
+            f'    string topic = 1;\n'
+            f'    {msg_type} message = 2;\n'
+             '}\n'
+        )
+
+        f.write(
+            f'service Send{msg_type}ROS2 {"{"}\n'
+            f'    rpc SendROSMessage ({msg_type}Packet) returns (google.protobuf.Empty) {"{}"}\n'
+            f'{"}"}\n'
+        )
+
 def main(proto_path: str):
     all_msgs = ros2interface.api.get_message_interfaces()
     for msg_package, msg_types in all_msgs.items():
@@ -113,9 +128,10 @@ def main(proto_path: str):
     if not proto_path.startswith('/') and not proto_path.startswith('.'):
         proto_path = os.path.join('.', proto_path)
     cpp_path = os.path.join(proto_path, 'cpp')
+    grpc_path = os.path.join(proto_path, 'grpc')
     if not os.path.exists(cpp_path):
         os.mkdir(cpp_path)
-    subprocess.run(['protoc', f'--proto_path={proto_path}', f'--cpp_out={cpp_path}', *generated_files])
+    subprocess.run(['protoc', f'--proto_path={proto_path}', f'--cpp_out={cpp_path}', f'--grpc_out={grpc_path}', '--plugin=protoc-gen-grpc=/home/alex/.local/src/grpc/install/bin/grpc_cpp_plugin', *generated_files])
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
