@@ -64,5 +64,5 @@ RUN export MY_INSTALL_DIR=$HOME/.local \
 # SETUP BRIDGE DEPENDENCIES -----------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------------
 
-RUN sudo apt install -y python3-pip \
+RUN sudo apt install -y python3-pip python3-catkin-tools \
     && python3 -m pip install proto_schema_parser

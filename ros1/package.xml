@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="2">
+    <name>ros1_bridge_grpc</name>
+    <version>1.0.0</version>
+    <description>Package which provides a method of bridging ROS1 and ROS2 message topics across any ROS1 and ROS2 distros</description>
+    <maintainer email="alexnavtt@utexas.edu">alex</maintainer>
+    <license>BSD</license>
+
+    <depend>protobuf-dev</depend>
+
+    <export>
+    </export>
+</package>
