@@ -115,7 +115,17 @@ def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str) 
             f'{"}"}\n'
         )
 
-def main(proto_path: str):
+def main(code_gen_path: str):
+    if not code_gen_path.startswith('/') and not code_gen_path.startswith('.'):
+        code_gen_path = os.path.join('.', code_gen_path)
+    proto_path = os.path.join(code_gen_path, 'proto')
+    cpp_path = os.path.join(code_gen_path, 'proto_cpp')
+    grpc_path = os.path.join(code_gen_path, 'grpc_cpp')
+
+    for path in [proto_path, cpp_path, grpc_path]:
+        if not os.path.exists(path):
+            os.mkdir(path)
+
     all_msgs = ros2interface.api.get_message_interfaces()
     for msg_package, msg_types in all_msgs.items():
         for msg_type in msg_types:
@@ -125,10 +135,6 @@ def main(proto_path: str):
             ros2_message_to_proto_msg(msg_package, msg_type[4:], proto_path)
 
     # Invoke protoc on the generated files
-    if not proto_path.startswith('/') and not proto_path.startswith('.'):
-        proto_path = os.path.join('.', proto_path)
-    cpp_path = os.path.join(proto_path, 'cpp')
-    grpc_path = os.path.join(proto_path, 'grpc')
     if not os.path.exists(cpp_path):
         os.mkdir(cpp_path)
     subprocess.run(['protoc', f'--proto_path={proto_path}', f'--cpp_out={cpp_path}', f'--grpc_out={grpc_path}', '--plugin=protoc-gen-grpc=/home/alex/.local/src/grpc/install/bin/grpc_cpp_plugin', *generated_files])
@@ -138,5 +144,5 @@ if __name__ == '__main__':
         print('Missing required argument proto_path')
         exit(1)
 
-    proto_path = sys.argv[1]
-    main(proto_path)
+    code_gen_path = sys.argv[1]
+    main(code_gen_path)
