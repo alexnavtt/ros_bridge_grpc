@@ -110,7 +110,7 @@ def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str) 
         )
 
         f.write(
-            f'service Send{msg_type}ROS2 {"{"}\n'
+            f'service Send{msg_type}ROS {"{"}\n'
             f'    rpc SendROSMessage ({msg_type}Packet) returns (google.protobuf.Empty) {"{}"}\n'
             f'{"}"}\n'
         )

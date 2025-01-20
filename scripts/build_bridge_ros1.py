@@ -164,7 +164,7 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, message_class,
         create_sub_string = 'nh.subscribe'
         info = 'ROS_INFO('
         header = f'{msg_package}/{msg_type}.h'
-        
+
     elif mode == 'ros2':
         ros_type = f'{msg_package}::msg::{msg_type}'
         subscriber_string = f'rclcpp::Subscription<{msg_package}::{msg_type}>'
@@ -208,9 +208,9 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, message_class,
     f.write(
         f'template<>\n'
         f'std::shared_ptr<{subscriber_base_string}> registerSubscription<{ros_type}>(const std::string& topic, {node_string} nh, std::shared_ptr<grpc::Channel> channel) {"{"}\n'
-        f'    static std::map<grpc::Channel*, std::unique_ptr<{msg_package}_proto::Send{msg_type}ROS{mode[-1]}::Stub>> stubs;\n'
+        f'    static std::map<grpc::Channel*, std::unique_ptr<{msg_package}_proto::Send{msg_type}ROS::Stub>> stubs;\n'
         f'    if (!stubs.count(channel.get())) {"{"}\n'
-        f'        stubs[channel.get()] = std::move({msg_package}_proto::Send{msg_type}ROS{mode[-1]}::NewStub(channel));\n'
+        f'        stubs[channel.get()] = std::move({msg_package}_proto::Send{msg_type}ROS::NewStub(channel));\n'
         f'    {"}"}\n'
         f'    \n'
         f'    auto& stub = stubs.at(channel.get());\n'
@@ -233,7 +233,7 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, message_class,
     f.write(
         f'template<>\n'
         f'std::any registerPublisher<{ros_type}>(const std::string& topic, {node_string} nh, grpc::ServerBuilder& server_builder) {"{"}\n'
-        f'    class SendROSMessageImpl final : public {msg_package}::Send{msg_type}ROS{mode[-1]}::Service {"{"}\n'
+        f'    class SendROSMessageImpl final : public {msg_package}_proto::Send{msg_type}ROS::Service {"{"}\n'
         f'    public:\n'
         f'        SendROSMessageImpl({node_string} node, const std::string& topic) {"{"} : \n'
         f'            pub_({create_pub_string}(topic, 10)) {"{}"}\n\n'
