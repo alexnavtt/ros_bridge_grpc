@@ -11,8 +11,6 @@ from typing import Dict, List
 from proto_schema_parser import Parser, Message, FieldCardinality
 from proto_schema_parser.ast import Comment, Field
 
-import rospy
-
 loaded_msg_packages = {}
 
 compatible_types = {
@@ -28,8 +26,6 @@ compatible_types = {
     'char': ['uint32', 'int32']
 }
 
-ros_basic_types = ['bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'int64', 'uint64', 'float32', 'float64', 'string']
-
 def are_types_equivalent(ros1_msg_type: str, ros2_msg_type: str) -> bool:
     if ros1_msg_type == ros2_msg_type:
         return True
@@ -38,9 +34,6 @@ def are_types_equivalent(ros1_msg_type: str, ros2_msg_type: str) -> bool:
         return ros2_msg_type in compatible_types[ros1_msg_type]
     
     return False
-
-def to_snake(name: str) -> str:
-    return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
 
 def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str) -> bool:
     if msg_package == 'std_msgs' and msg_name == 'Header':
@@ -149,130 +142,6 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
     
     return True
 
-def generate_cpp_conversion_code(msg_package: str, msg_type: str, message_class, mode = 'ros2') -> None:
-    class F:
-        def write(self, str):
-            print(str, end='')
-    # with open("my_file") as f:
-    f = F()
-
-    is_header: bool = msg_package == 'std_msgs' and msg_type == 'Header'
-    if not is_header: return
-
-    proto_type = f'{msg_package}_proto::{msg_type}'
-
-    if mode == 'ros1':
-        ros_type = f'{msg_package}::{msg_type}'
-        subscriber_string = subscriber_base_string = 'ros::Subscriber'
-        publisher_string = 'ros::Publisher'
-        node_string = 'ros::NodeHandle&'
-        create_pub_string = 'nh.advertise'
-        create_sub_string = 'nh.subscribe'
-        info = 'ROS_INFO('
-        header = f'{msg_package}/{msg_type}.h'
-
-    elif mode == 'ros2':
-        ros_type = f'{msg_package}::msg::{msg_type}'
-        subscriber_string = f'rclcpp::Subscription<{msg_package}::{msg_type}>'
-        subscriber_base_string = f'rclcpp::SubscriptionBase'
-        publisher_string = f'rclcpp::Publisher<{msg_package}::{msg_type}>'
-        node_string = 'rclcpp::Node::SharedPtr'
-        create_pub_string = f'*nh->create_publisher<{msg_package}::{msg_type}>'
-        create_sub_string = f'*nh->create_subscription<{msg_package}::{msg_type}>'
-        info = 'RCLCPP_INFO(nh->get_logger(), '
-        header = f'{msg_package}/msg/{to_snake(msg_type)}.hpp'
-
-    # Headers
-    f.write(
-        f'#include <{msg_package}.{msg_type}.pb.h>\n'
-        f'#include <{header}>\n'
-        '\n'
-    )
-
-    # Add a function to convert this message type from ros to grpc
-    f.write(f'void ros2grpc(const {ros_type}& ros_msg, {proto_type}& proto_msg) {"{"}\n')
-    for field_idx, field_name in enumerate(message_class.__slots__):
-        field_type: str = message_class._slot_types[field_idx]
-        if is_header and field_name == 'seq': 
-            continue
-        elif field_type in ros_basic_types:
-            f.write(f'        proto_message.set_{field_name}(ros_msg->{field_name});\n')
-        else:
-            f.write(f'        ros2grpc(ros_msg->{field_name}, *proto_message.mutable_{field_name}());\n')
-    f.write("}\n\n")
-
-    # Add a function to convert this message type from ros to grpc
-    f.write(f'void grpc2ros(const {proto_type}& proto_msg, {ros_type}& ros_msg) {"{"}\n')
-    for field_idx, field_name in enumerate(message_class.__slots__):
-        field_type: str = message_class._slot_types[field_idx]
-        if is_header and field_name == 'seq': 
-            continue
-        elif field_type in ros_basic_types:
-            f.write(f'        ros_msg->{field_name} = proto_message.{field_name}();\n')
-        else:
-            f.write(f'        grpc2ros(*proto_message.{field_name}(), ros_msg->{field_name});\n')
-    f.write("}\n\n")
-
-    # Add function to create subscriber and a gRPC publisher
-    f.write(
-        f'template<>\n'
-        f'std::shared_ptr<{subscriber_base_string}> registerSubscription<{ros_type}>(const std::string& topic, {node_string} nh, std::shared_ptr<grpc::Channel> channel) {"{"}\n'
-        f'    static std::map<grpc::Channel*, std::unique_ptr<{msg_package}_proto::Send{msg_type}ROS::Stub>> stubs;\n'
-        f'    if (!stubs.count(channel.get())) {"{"}\n'
-        f'        stubs[channel.get()] = std::move({msg_package}_proto::Send{msg_type}ROS::NewStub(channel));\n'
-        f'    {"}"}\n'
-        f'    \n'
-        f'    auto& stub = stubs.at(channel.get());\n'
-        f'    auto callback = [&stub, topic](const {ros_type}::SharedPtr msg) {"{"}\n'
-        f'        {proto_type}Packet proto_message;\n'
-        f'        proto_message.set_topic(topic);\n'
-        f'        ros2grpc(*msg, *proto_message.mutable_message());\n'
-        f'        grpc::ClientContext client_context;\n'
-        f'        google::protobuf::Empty empty_message;\n'
-        f'        grpc::Status statuc = stub->SendROSMessage(&client_context, proto_message, empty_message);\n'
-        f'        if (!status.ok()) {info}gRPC call failed sending message type {ros_type} across bridge);\n'
-        f'    {"}"};\n'
-        f'    \n'
-        f'    auto sub = std::make_shared<{subscriber_string}>({create_sub_string}(topic, 10, callback));\n'
-        f'    return std::static_pointer_cast<{subscriber_base_string}>(sub);\n'
-        f'{"}"}\n\n'
-    )
-    
-    # Add function to create publisher and a gRPC subscription
-    f.write(
-        f'template<>\n'
-        f'std::any registerPublisher<{ros_type}>(const std::string& topic, {node_string} nh, grpc::ServerBuilder& server_builder) {"{"}\n'
-        f'    class SendROSMessageImpl final : public {msg_package}_proto::Send{msg_type}ROS::Service {"{"}\n'
-        f'    public:\n'
-        f'        SendROSMessageImpl({node_string} node, const std::string& topic) {"{"} : \n'
-        f'            pub_({create_pub_string}(topic, 10)) {"{}"}\n\n'
-        f'        grpc::Status SendROSMessage (grpc::ServerContext* context, const {proto_type}Packet* message, google::protobuf::Empty* response) override {"{"}\n'
-        f'            {ros_type} ros_msg;\n'
-        f'            grpc2ros(message->message(), ros_msg);\n'
-        f'            pub->publish(ros_msg);\n'
-        f'            return grpc::Status::OK;\n'
-        f'        {"}"}\n'
-        f'    \n'
-        f'    private:\n'      
-        f'        std::shared_ptr<{publisher_string}> pub_;\n'
-        f'    {"}"};\n'
-        f'    std::any ros_pub_service = std::make_any<SendROSMessageImpl>(nh, topic);\n'
-        f'    builder.RegisterService(std::any_cast<SendROSMessageImpl>(&ros_pub_service));\n'
-        f'    return ros_pub_service;\n'
-        f'{"}"};\n'
-    )
-
-    # Register the functions
-    f.write('\n'
-        f'const auto {msg_package}_{msg_type}_registration_success = std::invoke([]{"{"}\n'
-        f'    BridgeServerROS{mode[-1]}::subscriber_registration_callbacks["{msg_package}/{msg_type}"] = registerSubscription<{ros_type}>;\n'
-        f'    BridgeServerROS{mode[-1]}::publisher_registration_callbacks["{msg_package}/{msg_type}"] = registerPublisher<{ros_type}>;\n'
-        f'    return true;\n'
-        f'{"});"}\n'
-    )
-
-    print('\n')
-
 def get_all_known_message_types() -> Dict[str, List[str]]:
     rospack = rospkg.RosPack()
     rosmsg_packages = rosmsg.iterate_packages(rospack, '.msg')
@@ -308,10 +177,7 @@ def main():
             continue
 
         if not check_msg_compatibility(msg_package, msg_typename, file_path):
-            # print(f'Message {msg_package}/{msg_typename} is not compatible between ROS1 and ROS2')
-            continue
-
-        generate_cpp_conversion_code(msg_package, msg_typename, getattr(loaded_msg_packages[msg_package], msg_typename))
+            print(f'Message {msg_package}/{msg_typename} is not compatible between ROS1 and ROS2')
 
     print('Unable to find matching packages for:')
     for missed_packge in sorted(missed_packages):
