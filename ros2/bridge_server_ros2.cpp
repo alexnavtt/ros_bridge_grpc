@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <rclcpp/rclcpp.hpp>
 #include <grpcpp/grpcpp.h>
+#include <register.hpp>
 
 template<typename T>
 constexpr bool is_basic_v() {
@@ -93,7 +94,7 @@ std::unordered_map<std::string, BridgeServerROS2::PublisherRegisterCallback_t> B
 std::unordered_map<std::string, BridgeServerROS2::SubscriberRegisterCallback_t> BridgeServerROS2::subscriber_registration_callbacks;
 
 // Inlcude our auto-generated files, which populate the registration callback variables
-// #include <bridge_types.hpp>
+#include <bridge_types.hpp>
 
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
