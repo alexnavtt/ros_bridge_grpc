@@ -66,3 +66,11 @@ RUN export MY_INSTALL_DIR=$HOME/.local \
 
 RUN sudo apt install -y python3-pip python3-catkin-tools \
     && python3 -m pip install proto_schema_parser
+
+# -------------------------------------------------------------------------------------------------
+# SETUP USER INTERFACE ----------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
+
+# Set up terminal and bashrc
+RUN sed -i 's/#force_color_prompt=yes/force_color_prompt=yes/' "/home/${USERNAME}/.bashrc" \
+    && sed -i 's/01;32m/01;36m/g; s/01;34m/01;35m/g' "/home/${USERNAME}/.bashrc"

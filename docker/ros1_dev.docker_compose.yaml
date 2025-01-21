@@ -14,3 +14,4 @@ services:
     # enable stdin and tty to allow the user to run bash interactively
     stdin_open: true
     tty: true
+    user: "1000:1000"
