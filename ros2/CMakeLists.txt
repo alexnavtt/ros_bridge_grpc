@@ -58,14 +58,20 @@ include_directories(
     /home/alex/workspaces/project_ws/src/ros1_bridge_grpc/generated/grpc_cpp
     /home/alex/workspaces/project_ws/src/ros1_bridge_grpc/generated/proto_cpp
     /home/alex/workspaces/project_ws/src/ros1_bridge_grpc/common
+    ${Protobuf_INCLUDE_DIRS}
 )
 
-add_executable(bridge_server_ros2 bridge_server_ros2.cpp)
-ament_target_dependencies(bridge_server_ros2 rclcpp gRPC)
-target_link_libraries(bridge_server_ros2 gRPC::grpc++)
-target_compile_definitions(bridge_server_ros2 PRIVATE "ROS2")
+add_compile_definitions(ROS2)
 
-ament_target_dependencies(bridge_server_ros2
+file(GLOB CONVERSION_SOURCES "/home/alex/workspaces/project_ws/src/ros1_bridge_grpc/generated/conversions/ros2/*.cpp")
+add_library(conversions SHARED ${CONVERSION_SOURCES})
+target_link_libraries(conversions gRPC::grpc++)
+
+add_executable(bridge_server_ros2 bridge_server_ros2.cpp)
+ament_target_dependencies(bridge_server_ros2 rclcpp)
+target_link_libraries(bridge_server_ros2 gRPC::grpc++ conversions)
+
+ament_target_dependencies(conversions
     action_msgs
     action_tutorials_interfaces
     actionlib_msgs

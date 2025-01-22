@@ -1,4 +1,3 @@
-#include <any>
 #include <thread>
 #include <type_traits>
 #include <unordered_set>
@@ -6,6 +5,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <grpcpp/grpcpp.h>
 #include <register.hpp>
+#include <custom_conversions.hpp>
+#include <ros2/bridge_types.hpp>
 
 template<typename T>
 constexpr bool is_basic_v() {
@@ -74,7 +75,7 @@ public:
     std::unordered_map<std::string, std::string> registered_topics_and_types;
 
     // The publisher registration callbacks, which create a publisher to ROS2 and returns a gRPC service
-    using PublisherRegisterCallback_t = std::function<std::any(std::string, rclcpp::Node&, grpc::ServerBuilder&)>;
+    using PublisherRegisterCallback_t = std::function<std::shared_ptr<grpc::Service>(std::string, rclcpp::Node&, grpc::ServerBuilder&)>;
     static std::unordered_map<std::string, PublisherRegisterCallback_t> publisher_registration_callbacks;
 
     // The subscriptions callbacks, which create a subscription to ROS2 message and a client to gRPC
@@ -82,7 +83,7 @@ public:
     static std::unordered_map<std::string, SubscriberRegisterCallback_t> subscriber_registration_callbacks;
 
     // The actual subscribers and publishers used
-    std::unordered_map<std::string, std::any> publishers;
+    std::unordered_map<std::string, std::shared_ptr<grpc::Service>> publishers;
     std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr> subscribers;
 
     // The gRPC communication channel
@@ -93,11 +94,13 @@ public:
 std::unordered_map<std::string, BridgeServerROS2::PublisherRegisterCallback_t> BridgeServerROS2::publisher_registration_callbacks;
 std::unordered_map<std::string, BridgeServerROS2::SubscriberRegisterCallback_t> BridgeServerROS2::subscriber_registration_callbacks;
 
-// Inlcude our auto-generated files, which populate the registration callback variables
-#include <bridge_types.hpp>
+void registerAllTypes() {
+    #include <ros2/register_types.hpp>
+}
 
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
+    registerAllTypes();
     auto node = std::make_shared<BridgeServerROS2>("bridge_server_ros2");
     rclcpp::spin(node);
 }

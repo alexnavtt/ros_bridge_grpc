@@ -2,8 +2,6 @@ import os
 import sys
 import subprocess
 import ros2interface.api
-from visualization_msgs.msg import Marker
-from moveit_msgs.msg import Constraints
 
 generated_files = []
 
@@ -18,7 +16,6 @@ types_map = {
     'boolean': 'bool',
     'octet': 'uint32',
     # TODO: explore the use of 'bytes' here
-    'wstring': 'string',
 }
 
 imports_map = {
@@ -40,7 +37,11 @@ def resolve_type(field_type: str) -> str:
         return 'repeated ' + resolve_type(field_type[:field_type.find('[')])
     # Constant sized array
     elif field_type.endswith('>'):
-        return 'repeated ' + resolve_type(field_type[:field_type.find('<')])
+        # We don't enforce string sizes
+        if field_type.startswith('string'):
+            return 'string'
+        else:
+            return 'repeated ' + resolve_type(field_type[:field_type.find('<')])
     # Single item
     else:
         if '/' in field_type:
@@ -64,6 +65,10 @@ def resolve_import(field_type: str) -> str:
 
 def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str) -> None:
     full_message_type = ros2interface.api.utilities.get_message(msg_package + '/' + msg_type)
+
+    if 'wstring' in full_message_type._fields_and_field_types.values():
+        print(f'Cannot bridge {msg_package}/{msg_type} as wstring is not supported in ROS1')
+        return
 
     file_name = f'{msg_package}.{msg_type}.proto'
     file_path = os.path.join(proto_path, file_name)
@@ -137,11 +142,11 @@ def main(code_gen_path: str):
     # Invoke protoc on the generated files
     if not os.path.exists(cpp_path):
         os.mkdir(cpp_path)
-    subprocess.run(['protoc', f'--proto_path={proto_path}', f'--cpp_out={cpp_path}', f'--grpc_out={grpc_path}', '--plugin=protoc-gen-grpc=/home/alex/.local/src/grpc/install/bin/grpc_cpp_plugin', *generated_files])
+    subprocess.run(['/home/alex/.local/src/grpc/install/bin/protoc', f'--proto_path={proto_path}', f'--cpp_out={cpp_path}', f'--grpc_out={grpc_path}', '--plugin=protoc-gen-grpc=/home/alex/.local/src/grpc/install/bin/grpc_cpp_plugin', *generated_files])
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
-        print('Missing required argument proto_path')
+        print('Missing required argument code_gen_path')
         exit(1)
 
     code_gen_path = sys.argv[1]
