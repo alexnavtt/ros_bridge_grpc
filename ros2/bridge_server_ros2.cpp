@@ -5,7 +5,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <grpcpp/grpcpp.h>
 #include <register.hpp>
-#include <custom_conversions.hpp>
 #include <ros2/bridge_types.hpp>
 
 template<typename T>
@@ -18,6 +17,7 @@ class BridgeServerROS2 : public rclcpp::Node {
 public:
     BridgeServerROS2(const std::string& name) : Node(name)
     {
+        RCLCPP_INFO(get_logger(), "Starting ROS2 bridge server");
         // Retrieve the list of topics and types for which to create bridges
         rcl_interfaces::msg::ParameterDescriptor registered_topics_config;
         registered_topics_config.name = "registered_topics";
@@ -36,10 +36,12 @@ public:
         const std::string grpc_address = declare_parameter(grpc_address_config.name, grpc_address_default, grpc_address_config);
 
         // Create a gRPC service builder to allow all types to register their publisher callbacks with
+        RCLCPP_INFO(get_logger(), "Creating gRPC server on %s", grpc_address.c_str());
         grpc::ServerBuilder builder;
         builder.AddListeningPort(grpc_address, grpc::InsecureServerCredentials());
 
         // Create a gRPC channel to allow all types to register their subscription callbacks with
+        RCLCPP_INFO(get_logger(), "Creating gRPC channel to %s", grpc_address.c_str());
         std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(grpc_address, grpc::InsecureChannelCredentials());
 
         // For each of them, register the corresponding communication elements
@@ -61,12 +63,25 @@ public:
                 continue;
             }
 
+            RCLCPP_INFO(get_logger(), "Registering topic %s using type %s", topic.c_str(), type.c_str());
             registered_topics_and_types[topic] = type;
             publishers[topic] = publisher_registration_callbacks.at(type)(topic, *this, builder);
             subscribers[topic] = subscriber_registration_callbacks.at(type)(topic, *this, channel);
         }
 
+        grpc_queue = builder.AddCompletionQueue();
+        grpc_queue_thread = std::thread([this](){
+            void* tag;
+            bool ok;
+            while (grpc_queue->Next(&tag, &ok)) {
+                if (!ok) {
+                    RCLCPP_ERROR(get_logger(), "gRPC call failed");
+                }
+            }
+        });
+
         // Finalize the gRPC server
+        RCLCPP_INFO(get_logger(), "Starting gRPC server");
         grpc_server = builder.BuildAndStart();
         grpc_server_thread = std::thread([this](){grpc_server->Wait();});
     }
@@ -89,6 +104,9 @@ public:
     // The gRPC communication channel
     std::unique_ptr<grpc::Server> grpc_server;
     std::thread grpc_server_thread;
+
+    std::unique_ptr<grpc::ServerCompletionQueue> grpc_queue;
+    std::thread grpc_queue_thread;
 };
 
 std::unordered_map<std::string, BridgeServerROS2::PublisherRegisterCallback_t> BridgeServerROS2::publisher_registration_callbacks;

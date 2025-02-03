@@ -121,3 +121,15 @@ ament_target_dependencies(conversions
     velodyne_msgs
     visualization_msgs
 )
+
+install(TARGETS
+    bridge_server_ros2
+    DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS
+    conversions
+    DESTINATION lib
+)
+
+ament_package()
