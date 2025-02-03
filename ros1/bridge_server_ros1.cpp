@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <ros/ros.h>
 #include <grpcpp/grpcpp.h>
+#include <register.hpp>
+#include <ros1/bridge_types.hpp>
 
 template<typename T>
 constexpr bool is_basic_v() {
@@ -16,6 +18,7 @@ class BridgeServerROS1 {
 public:
     BridgeServerROS1(ros::NodeHandle& nh)
     {
+        ROS_INFO("Starting ROS1 bridge server");
         // Retrieve the list of topics and types for which to create bridges
         std::vector<std::string> registered_topics_param = nh.param("registered_topics", std::vector<std::string>{});
 
@@ -24,6 +27,7 @@ public:
         const std::string grpc_address = nh.param("grpc_address", grpc_address_default);
 
         // Create a gRPC service builder to allow all types to register their publisher callbacks with
+        ROS_INFO("Creating gRPC server on %s", grpc_address.c_str());
         grpc::ServerBuilder builder;
         builder.AddListeningPort(grpc_address, grpc::InsecureServerCredentials());
 
@@ -49,14 +53,27 @@ public:
                 continue;
             }
 
+            ROS_INFO("Registering topic %s using type %s", topic.c_str(), type.c_str());
             registered_topics_and_types[topic] = type;
             publishers[topic] = publisher_registration_callbacks.at(type)(topic, nh, builder);
             subscribers[topic] = subscriber_registration_callbacks.at(type)(topic, nh, channel);
         }
 
+        grpc_queue = builder.AddCompletionQueue();
+        grpc_queue_thread = std::thread([this](){
+            void* tag;
+            bool ok;
+            while (grpc_queue->Next(&tag, &ok)) {
+                if (!ok) {
+                    ROS_ERROR("gRPC call failed");
+                }
+            }
+        });
+
         // Finalize the gRPC server
         grpc_server = builder.BuildAndStart();
         grpc_server_thread = std::thread([this](){grpc_server->Wait();});
+        ROS_INFO("Server online");
     }
 
     // The names of the topics we'd like to bridge and the types they're registered to
@@ -77,13 +94,18 @@ public:
     // The gRPC communication channel
     std::unique_ptr<grpc::Server> grpc_server;
     std::thread grpc_server_thread;
+
+    std::unique_ptr<grpc::ServerCompletionQueue> grpc_queue;
+    std::thread grpc_queue_thread;
 };
 
 std::unordered_map<std::string, BridgeServerROS1::PublisherRegisterCallback_t> BridgeServerROS1::publisher_registration_callbacks;
 std::unordered_map<std::string, BridgeServerROS1::SubscriberRegisterCallback_t> BridgeServerROS1::subscriber_registration_callbacks;
 
 // Inlcude our auto-generated files, which populate the registration callback variables
-// #include <bridge_types.hpp>
+void registerAllTypes() {
+    #include <ros1/register_types.hpp>
+}
 
 int main(int argc, char* argv[]) {
     ros::init(argc, argv, "bridge_server_ros1");

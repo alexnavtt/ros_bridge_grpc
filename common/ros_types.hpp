@@ -2,8 +2,6 @@
 
 #ifdef ROS1
 #include <ros/ros.h>
-#define SUBSCRIBER ros::Subscriber
-#define PUBLISHER  ros::Publisher 
 #define NODE ros::NodeHandle&
 #define LOG_INFO(node, ...) ROS_INFO(__VA_ARGS__)
 #define PUBLISHER(type) ros::Publisher

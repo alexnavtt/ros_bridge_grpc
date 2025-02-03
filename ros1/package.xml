@@ -8,6 +8,7 @@
     <license>BSD</license>
 
     <depend>protobuf-dev</depend>
+    <buildtool_depend>catkin</buildtool_depend>
 
     <export>
     </export>
