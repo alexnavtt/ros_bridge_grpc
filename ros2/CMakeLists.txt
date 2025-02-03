@@ -64,8 +64,10 @@ include_directories(
 add_compile_definitions(ROS2)
 
 file(GLOB CONVERSION_SOURCES "/home/alex/workspaces/project_ws/src/ros1_bridge_grpc/generated/conversions/ros2/*.cpp")
-add_library(conversions SHARED ${CONVERSION_SOURCES})
-target_link_libraries(conversions gRPC::grpc++)
+file(GLOB GRPC_SOURCES "/home/alex/workspaces/project_ws/src/ros1_bridge_grpc/generated/grpc_cpp/*.cc")
+file(GLOB PROTO_SOURCES "/home/alex/workspaces/project_ws/src/ros1_bridge_grpc/generated/proto_cpp/*.cc")
+add_library(conversions SHARED ${CONVERSION_SOURCES} ${GRPC_SOURCES} ${PROTO_SOURCES} ${CMAKE_SOURCE_DIR}/../common/custom_conversions.hpp)
+target_link_libraries(conversions gRPC::grpc++ ${Protobuf_LIBRARIES} protobuf::libprotobuf)
 
 add_executable(bridge_server_ros2 bridge_server_ros2.cpp)
 ament_target_dependencies(bridge_server_ros2 rclcpp)

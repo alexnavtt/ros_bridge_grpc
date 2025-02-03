@@ -65,6 +65,7 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, basic_fields: 
             f'#include <register.hpp>\n'
             f'#include <ros_types.hpp>\n'
             f'#include <careful_resize.hpp>\n'
+            f'#include <custom_conversions.hpp>\n'
             '\n'
         )
 
@@ -181,6 +182,10 @@ def main():
         exit(1)
 
     gen_path = sys.argv[1]
+
+    if not os.path.exists(os.path.join(gen_path, 'conversions')):
+        os.mkdir(os.path.join(gen_path, 'conversions'))
+
     for mode in ['ros1', 'ros2']:
         dest_path = os.path.join(gen_path, 'conversions', mode)
         if not os.path.exists(dest_path):
