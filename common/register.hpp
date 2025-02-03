@@ -6,14 +6,10 @@
 #include <grpcpp/grpcpp.h>
 
 template<typename T>
-std::shared_ptr<SUBSCRIBER_BASE> registerSubscription(const std::string&, NODE, std::shared_ptr<grpc::Channel>) {
-    throw std::runtime_error("Called registerSubscription with unknown type");
-}
+std::shared_ptr<SUBSCRIBER_BASE> registerSubscription(const std::string&, NODE, std::shared_ptr<grpc::Channel>);
 
 template<typename T>
-std::shared_ptr<grpc::Service> registerPublisher(const std::string&, NODE, grpc::ServerBuilder&) {
-    throw std::runtime_error("Called registerPublisher with unknown type");
-}
+std::shared_ptr<grpc::Service> registerPublisher(const std::string&, NODE, grpc::ServerBuilder&);
 
 template<typename ros_type, typename proto_type>
 void ros2grpc(const ros_type&, proto_type&);

@@ -90,11 +90,11 @@ public:
     std::unordered_map<std::string, std::string> registered_topics_and_types;
 
     // The publisher registration callbacks, which create a publisher to ROS2 and returns a gRPC service
-    using PublisherRegisterCallback_t = std::function<std::shared_ptr<grpc::Service>(std::string, rclcpp::Node&, grpc::ServerBuilder&)>;
+    using PublisherRegisterCallback_t = std::function<std::shared_ptr<grpc::Service>(const std::string&, rclcpp::Node&, grpc::ServerBuilder&)>;
     static std::unordered_map<std::string, PublisherRegisterCallback_t> publisher_registration_callbacks;
 
     // The subscriptions callbacks, which create a subscription to ROS2 message and a client to gRPC
-    using SubscriberRegisterCallback_t = std::function<rclcpp::SubscriptionBase::SharedPtr(std::string, rclcpp::Node&, std::shared_ptr<grpc::Channel>)>;
+    using SubscriberRegisterCallback_t = std::function<rclcpp::SubscriptionBase::SharedPtr(const std::string&, rclcpp::Node&, std::shared_ptr<grpc::Channel>)>;
     static std::unordered_map<std::string, SubscriberRegisterCallback_t> subscriber_registration_callbacks;
 
     // The actual subscribers and publishers used
