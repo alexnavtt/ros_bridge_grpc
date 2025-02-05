@@ -51,10 +51,12 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, basic_fields: 
     if mode == 'ros1':
         ros_type = f'{msg_package}::{msg_type}'
         header = f'{msg_package}/{msg_type}.h'
+        pointer = 'ConstPtr'
 
     elif mode == 'ros2':
         ros_type = f'{msg_package}::msg::{msg_type}'
         header = f'{msg_package}/msg/{to_snake(msg_type)}.hpp'
+        pointer = 'ConstSharedPtr'
 
     with open(os.path.join(dest_path, filename), 'w') as f:
         # Headers
@@ -123,12 +125,13 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, basic_fields: 
             f'    {"}"}\n'
             f'    \n'
             f'    auto& stub = stubs.at(channel.get());\n'
-            f'    auto callback = [&stub, topic, &nh](const {ros_type}::SharedPtr msg) {"{"}\n'
+            f'    auto callback = [&stub, topic, &nh](const {ros_type}::{pointer} msg) {"{"}\n'
             f'        {proto_type}Packet proto_message;\n'
             f'        proto_message.set_topic(topic);\n'
             f'        ros2grpc(*msg, *proto_message.mutable_message());\n'
             f'        grpc::ClientContext client_context;\n'
             f'        google::protobuf::Empty empty_message;\n'
+            f'        client_context.AddMetadata("{mode}", "");\n'
             f'        grpc::Status status = stub->SendROSMessage(&client_context, proto_message, &empty_message);\n'
             f'        if (!status.ok()) LOG_INFO(nh, "gRPC call failed sending message type {ros_type} across bridge");\n'
             f'    {"}"};\n'
@@ -147,6 +150,7 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, basic_fields: 
             f'        SendROSMessageImpl(NODE node, const std::string& topic) : \n'
             f'            pub_(CREATE_PUB_POINTER(node, {ros_type}, topic)) {"{}"}\n\n'
             f'        grpc::Status SendROSMessage (grpc::ServerContext* context, const {proto_type}Packet* message, google::protobuf::Empty* response) override {"{"}\n'
+            f'            if (context->client_metadata().count("{mode}")) return grpc::Status::OK;\n'
             f'            {ros_type} ros_msg;\n'
             f'            grpc2ros(message->message(), ros_msg);\n'
             f'            pub_->publish(ros_msg);\n'

@@ -7,24 +7,35 @@
 #include "builtin_interfaces/msg/duration.hpp"
 #include "std_msgs/msg/header.hpp"
 #include "std_msgs.Header.pb.h"
+#define ROS_TIME builtin_interfaces::msg::Time
+#define ROS_DURATION builtin_interfaces::msg::Duration
+#define NANOSECONDS nanosec
 #endif
 
-static inline void ros2grpc(const builtin_interfaces::msg::Time& ros_msg, google::protobuf::Timestamp& proto_msg) {
+#ifdef ROS1
+#include "ros/time.h"
+#include "ros/duration.h"
+#define ROS_TIME ros::Time
+#define ROS_DURATION ros::Duration
+#define NANOSECONDS nsec
+#endif
+
+static inline void ros2grpc(const ROS_TIME& ros_msg, google::protobuf::Timestamp& proto_msg) {
     proto_msg.set_seconds(ros_msg.sec);
-    proto_msg.set_nanos(ros_msg.nanosec);
+    proto_msg.set_nanos(ros_msg.NANOSECONDS);
 }
 
-static inline void grpc2ros(const google::protobuf::Timestamp& proto_msg, builtin_interfaces::msg::Time& ros_msg) {
+static inline void grpc2ros(const google::protobuf::Timestamp& proto_msg, ROS_TIME& ros_msg) {
     ros_msg.sec = proto_msg.seconds();
-    ros_msg.nanosec = proto_msg.nanos();
+    ros_msg.NANOSECONDS = proto_msg.nanos();
 }
 
-static inline void ros2grpc(const builtin_interfaces::msg::Duration& ros_msg, google::protobuf::Duration& proto_msg) {
+static inline void ros2grpc(const ROS_DURATION& ros_msg, google::protobuf::Duration& proto_msg) {
     proto_msg.set_seconds(ros_msg.sec);
-    proto_msg.set_nanos(ros_msg.nanosec);
+    proto_msg.set_nanos(ros_msg.NANOSECONDS);
 }
 
-static inline void grpc2ros(const google::protobuf::Duration& proto_msg, builtin_interfaces::msg::Duration& ros_msg) {
+static inline void grpc2ros(const google::protobuf::Duration& proto_msg, ROS_DURATION& ros_msg) {
     ros_msg.sec = proto_msg.seconds();
-    ros_msg.nanosec = proto_msg.nanos();
+    ros_msg.NANOSECONDS = proto_msg.nanos();
 }

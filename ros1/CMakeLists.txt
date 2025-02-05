@@ -23,11 +23,11 @@ include_directories(
 
 add_compile_definitions(ROS1)
 
-file(GLOB CONVERSION_SOURCES "/home/alex/workspaces/project_ws/src/ros1_bridge_grpc/generated/conversions/ros1/*.cpp")
-file(GLOB GRPC_SOURCES "/home/alex/workspaces/project_ws/src/ros1_bridge_grpc/generated/grpc_cpp/*.cc")
-file(GLOB PROTO_SOURCES "/home/alex/workspaces/project_ws/src/ros1_bridge_grpc/generated/proto_cpp/*.cc")
+file(GLOB CONVERSION_SOURCES "${CMAKE_SOURCE_DIR}/../generated/conversions/ros1/*.cpp")
+file(GLOB GRPC_SOURCES "${CMAKE_SOURCE_DIR}/../generated/grpc_cpp/*.cc")
+file(GLOB PROTO_SOURCES "${CMAKE_SOURCE_DIR}/../generated/proto_cpp/*.cc")
 add_library(conversions SHARED ${CONVERSION_SOURCES} ${GRPC_SOURCES} ${PROTO_SOURCES} ${CMAKE_SOURCE_DIR}/../common/custom_conversions.hpp)
-target_link_libraries(conversions gRPC::grpc++ ${Protobuf_LIBRARIES})
+target_link_libraries(conversions gRPC::grpc++ ${Protobuf_LIBRARIES} ${catkin_LIBRARIES})
 
 add_executable(bridge_server_ros1 bridge_server_ros1.cpp)
 target_link_libraries(bridge_server_ros1 conversions gRPC::grpc++ ${catkin_LIBRARIES})
