@@ -22,17 +22,21 @@ public:
         // Retrieve the list of topics and types for which to create bridges
         std::vector<std::string> registered_topics_param = nh.param("registered_topics", std::vector<std::string>{});
 
-        // Retrieve the channel on which to perform gRPC communication
-        const std::string grpc_address_default = "localhost:50051";
-        const std::string grpc_address = nh.param("grpc_address", grpc_address_default);
+        // Retrieve the channel on which to create the grpc server
+        const std::string grpc_address_1_default = "localhost:50051";
+        const std::string grpc_address_1 = nh.param("grpc_address", grpc_address_1_default);
+
+        const std::string grpc_address_2_default = "localhost:50052";
+        const std::string grpc_address_2 = nh.param("grpc_address_2", grpc_address_2_default);
 
         // Create a gRPC service builder to allow all types to register their publisher callbacks with
-        ROS_INFO("Creating gRPC server on %s", grpc_address.c_str());
+        ROS_INFO("Creating gRPC server on %s", grpc_address_2.c_str());
         grpc::ServerBuilder builder;
-        builder.AddListeningPort(grpc_address, grpc::InsecureServerCredentials());
+        builder.AddListeningPort(grpc_address_2, grpc::InsecureServerCredentials());
 
         // Create a gRPC channel to allow all types to register their subscription callbacks with
-        std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(grpc_address, grpc::InsecureChannelCredentials());
+        ROS_INFO("Creating gRPC client on %s", grpc_address_1.c_str());
+        std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(grpc_address_1, grpc::InsecureChannelCredentials());
 
         // For each of them, register the corresponding communication elements
         for (const std::string& topic_name_and_type : registered_topics_param) {
@@ -80,11 +84,11 @@ public:
     std::unordered_map<std::string, std::string> registered_topics_and_types;
 
     // The publisher registration callbacks, which create a publisher to ROS2 and returns a gRPC service
-    using PublisherRegisterCallback_t = std::function<std::any(std::string, ros::NodeHandle&, grpc::ServerBuilder&)>;
+    using PublisherRegisterCallback_t = std::function<std::any(const std::string&, ros::NodeHandle&, grpc::ServerBuilder&)>;
     static std::unordered_map<std::string, PublisherRegisterCallback_t> publisher_registration_callbacks;
 
     // The subscriptions callbacks, which create a subscription to ROS2 message and a client to gRPC
-    using SubscriberRegisterCallback_t = std::function<std::shared_ptr<ros::Subscriber>(std::string, ros::NodeHandle&, std::shared_ptr<grpc::Channel>)>;
+    using SubscriberRegisterCallback_t = std::function<std::shared_ptr<ros::Subscriber>(const std::string&, ros::NodeHandle&, std::shared_ptr<grpc::Channel>)>;
     static std::unordered_map<std::string, SubscriberRegisterCallback_t> subscriber_registration_callbacks;
 
     // The actual subscribers and publishers used
@@ -110,6 +114,7 @@ void registerAllTypes() {
 int main(int argc, char* argv[]) {
     ros::init(argc, argv, "bridge_server_ros1");
     ros::NodeHandle nh;
+    registerAllTypes();
     auto server = BridgeServerROS1(nh);
     ros::spin();
 }
