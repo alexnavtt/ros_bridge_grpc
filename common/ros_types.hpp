@@ -9,7 +9,8 @@
 #define SUBSCRIBER(type) ros::Subscriber
 #define SUBSCRIBER_BASE ros::Subscriber
 #define CREATE_PUB_POINTER(node, type, topic) std::make_shared<ros::Publisher>(node.advertise<type>(topic, 10))
-#define CREATE_SUB_POINTER(node, type, topic, callback) std::make_shared<ros::Subscriber>(node.subscribe<type>(topic, 10, callback))
+#define BOOST_CALLBACK_FN_TYPE(type) boost::function<void(const ros::MessageEvent<type>&)>
+#define CREATE_SUB_POINTER(node, type, topic, callback) std::make_shared<ros::Subscriber>(node.subscribe<type>(topic, 10, static_cast<BOOST_CALLBACK_FN_TYPE(type)>(callback)))
 #endif
 
 #ifdef ROS2
@@ -21,5 +22,10 @@
 #define SUBSCRIBER(type) rclcpp::Subscription<type>
 #define SUBSCRIBER_BASE rclcpp::SubscriptionBase
 #define CREATE_PUB_POINTER(node, type, topic) node.create_publisher<type>(topic, 10)
-#define CREATE_SUB_POINTER(node, type, topic, callback) node.create_subscription<type>(topic, 10, callback)
+#define CREATE_SUB_POINTER(node, type, topic, callback) \
+    [&node, &topic, &callback] () { \
+        rclcpp::SubscriptionOptionsWithAllocator<std::allocator<void>> opts; \
+        opts.ignore_local_publications = true; \
+        return node.create_subscription<type>(topic, 10, callback, opts); \
+    }();
 #endif

@@ -125,7 +125,22 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, basic_fields: 
             f'    {"}"}\n'
             f'    \n'
             f'    auto& stub = stubs.at(channel.get());\n'
+        )
+
+        if mode == 'ros1':
+            f.write(
+            f'    auto callback = [&stub, topic, &nh](const ros::MessageEvent<const {ros_type}>& event) {"{"}\n'
+            f'        // Ignore message from self\n'
+            f'        if (event.getPublisherName() == ros::this_node::getName()) return;\n'
+            f'        LOG_INFO(nh, "Received message from publisher: %s", event.getPublisherName().c_str());\n'
+            f'        const {ros_type}::{pointer} msg = event.getConstMessage();\n'
+            )
+        else:
+            f.write(
             f'    auto callback = [&stub, topic, &nh](const {ros_type}::{pointer} msg) {"{"}\n'
+            )
+
+        f.write(
             f'        {proto_type}Packet proto_message;\n'
             f'        proto_message.set_topic(topic);\n'
             f'        ros2grpc(*msg, *proto_message.mutable_message());\n'
