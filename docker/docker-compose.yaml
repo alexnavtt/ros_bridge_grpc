@@ -1,0 +1,19 @@
+services:
+  ros_bridge:
+    build:
+      context: ../.
+      dockerfile: docker/Dockerfile
+      ssh: 
+        - default
+      args:
+        ROS1_DISTRO: noetic
+        ROS2_DISTRO: humble
+        SYSTEM_PACKAGES: "std-msgs"          # Example: "tf2_ros tf2_geometry_msgs"
+        USER_REPOS: ""               # Example: "https://github.com/myuser/myrepo.git;https://github.com/myuser/another.git"
+    image: ros_bridge_image
+    container_name: ros_bridge_container
+    tty: true
+    stdin_open: true
+    environment:
+      - ROS_DOMAIN_ID=0 # TODO: Set in config
+    network_mode: host
