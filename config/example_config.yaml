@@ -1,0 +1,39 @@
+ros1:
+    distro: noetic
+    ROS_MASTER_URI: "http://localhost:11311"
+    ROS_HOSTNAME: null
+    ROS_IP: null
+
+ros2:
+    distro: humble
+    ROS_DOMAIN_ID: 0
+    RMW_IMPLEMENTATION: cyclonedds_cpp
+    CYCLONEDDS_URI: env   # read this value from the host environment
+    # CYCLONEDDS_URI: /path/to/uri/file
+
+# Most people won't need to change these
+port1: 50051
+port2: 50052
+
+msg_packages:
+    std_msgs: [ALL]
+
+    geometry_msgs:
+        - Point
+        - Pose
+        - PoseStamped
+
+    sensor_msgs:
+        - PointCloud2
+
+custom_packages:
+    git_urls: 
+        - "https://github.com/my_org/my_package.git -b my_branch"
+        - "git@github.com:my_org/my_other_package.git"
+
+    package_paths:
+        - "/local/path/to/my/awesome/interface_package"
+        - "/local/path/to/my/non_rosdep/interface/package/dependency"
+
+compatibility_overrides:
+    - "std_msgs/Header"
