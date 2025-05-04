@@ -27,13 +27,14 @@ msg_packages:
         - PointCloud2
 
 custom_packages:
-    git_urls: 
-        - "https://github.com/my_org/my_package.git -b my_branch"
-        - "git@github.com:my_org/my_other_package.git"
-
-    package_paths:
-        - "/local/path/to/my/awesome/interface_package"
-        - "/local/path/to/my/non_rosdep/interface/package/dependency"
+    - {package_name: my_package,
+      url: "https://github.com/my_org/my_package.git -b my_branch"}
+    - {package_name: my_other_package,
+       url: "git@github.com:my_org/my_other_package.git"}
+    - {package_name: local_package,
+       path: "/local/path/to/my/awesome/interface_package"}
+    - {package_name: local_package_dependency,
+       path: "/local/path/to/my/non_rosdep/interface/package/dependency"}
 
 compatibility_overrides:
     - "std_msgs/Header"
