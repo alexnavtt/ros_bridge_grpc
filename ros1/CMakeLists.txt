@@ -3,7 +3,7 @@ project(ros1_bridge_grpc)
 
 set(CMAKE_CXX_STANDARD 17)
 
-find_package(Protobuf REQUIRED PATHS /home/alex/.local/src/grpc/install/lib/cmake/protobuf)
+find_package(Protobuf REQUIRED)
 find_package(gRPC REQUIRED)
 find_package(catkin REQUIRED COMPONENTS 
     roscpp

@@ -3,7 +3,7 @@ project(ros2_bridge_grpc)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(Protobuf REQUIRED PATHS /home/alex/.local/src/grpc/install/lib/cmake/protobuf NO_DEFAULT_PATH)
+find_package(Protobuf REQUIRED)
 find_package(gRPC REQUIRED)
 
 find_package(action_msgs REQUIRED)
