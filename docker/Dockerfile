@@ -148,6 +148,9 @@ RUN source /opt/ros/${ROS2_DISTRO}/setup.bash \
     && CMAKE_PREFIX_PATH="/install:$CMAKE_PREFIX_PATH" colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release \
     && echo "source /colcon_ws/install/setup.bash" >> ~/.profile
 
+COPY docker/entrypoints/run_ros2_bridge.bash /entrypoints/run_ros2_bridge.bash
+RUN chmod +x /entrypoints/run_ros2_bridge.bash
+
 # -------------------------------------------------------------------------------------------------
 # ROS1
 # -------------------------------------------------------------------------------------------------
@@ -209,3 +212,6 @@ RUN source /opt/ros/${ROS1_DISTRO}/setup.bash \
     && catkin config --cmake-args -DCMAKE_BUILD_TYPE=Release \
     && CMAKE_PREFIX_PATH="/install:$CMAKE_PREFIX_PATH" catkin build --cmake-args -DCMAKE_BUILD_TYPE=Release \
     && echo "source /catkin_ws/devel/setup.bash" >> ~/.profile
+
+COPY docker/entrypoints/run_ros1_bridge.bash /entrypoints/run_ros1_bridge.bash
+RUN chmod +x /entrypoints/run_ros1_bridge.bash

@@ -26,3 +26,19 @@ services:
     network_mode: host
     pid: host
     ipc: host
+
+  ros1_bridge:
+    extends: ros_bridge
+    image: ros1_bridge_image
+    container_name: ros1_bridge_conainer
+    build:
+      target: ros1_base
+    entrypoint: /entrypoints/run_ros1_bridge.bash
+
+  ros2_bridge:
+    extends: ros_bridge
+    image: ros2_bridge_image
+    container_name: ros2_bridge_conainer
+    build:
+      target: ros2_base
+    entrypoint: /entrypoints/run_ros2_bridge.bash
