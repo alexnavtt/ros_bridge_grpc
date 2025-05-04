@@ -42,27 +42,28 @@ def main(config_file: str):
     output_dict['ROS_BRIDGE_GRPC_ALLOWED_TYPES'] = allowed_types
 
     # Custom message types
-    git_urls = ""
+    git_urls = {'ros1': '', 'ros2': ''}
     for custom_package in config_dict.get('custom_packages', list[dict[str, str]]()):
+        for version in ['ros1', 'ros2']:
+            if git_url := custom_package.get(f'{version}_url', None):
+                git_urls[version] += f'{git_url};'
 
-        if git_url := custom_package.get('url', None):
-            git_urls += f'{git_url};'
+            elif local_path := custom_package.get(f'{version}_path', None):
+                source_dir, _ = os.path.split(os.path.abspath(__file__))
+                mapped_dir = os.path.join(source_dir, '..', 'docker', 'mapped', version)
 
-        elif local_path := custom_package.get('path', None):
-            source_dir, _ = os.path.split(os.path.abspath(__file__))
-            mapped_dir = os.path.join(source_dir, '..', 'docker', 'mapped')
+                _, target_dir_name = os.path.split(local_path)
+                mapped_target = os.path.join(mapped_dir, target_dir_name)
+                os.makedirs(mapped_target, exist_ok=True)
+                subprocess.run(['sudo', 'mount', '--bind', local_path, mapped_target])
 
-            _, target_dir_name = os.path.split(local_path)
-            mapped_target = os.path.join(mapped_dir, target_dir_name)
-            os.makedirs(mapped_target, exist_ok=True)
-            subprocess.run(['sudo', 'mount', '--bind', local_path, mapped_target])
-
-        else:
-            continue
+            else:
+                continue
 
         output_dict['ROS_BRIDGE_GRPC_MESSAGE_PACKAGES'] += f' {custom_package["package_name"]}'
 
-    output_dict['ROS_BRIDGE_GRPC_USER_REPOS'] = git_urls
+    output_dict['ROS_BRIDGE_GRPC_USER_ROS1_REPOS'] = git_urls['ros1']
+    output_dict['ROS_BRIDGE_GRPC_USER_ROS2_REPOS'] = git_urls['ros2']
 
     # Compatibiltiy overrides
     output_dict['ROS_BRIDGE_GRPC_COMPAT_OVERRIDES'] = ' '.join(config_dict.get('compatibility_overrides', list[str]()))

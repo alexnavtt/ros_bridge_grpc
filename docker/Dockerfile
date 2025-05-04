@@ -2,11 +2,13 @@ ARG ROS1_DISTRO=noetic
 ARG ROS2_DISTRO=humble
 
 # -------------------------------------------------------------------------------------------------
-# GRPC
+# GRPC ROS2
 # -------------------------------------------------------------------------------------------------
 
 # Build gRPC for use in both sides of the bridge
-FROM ubuntu:jammy AS grpc_base
+FROM ubuntu:jammy AS grpc_base_ros2
+
+ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt update \
     && apt install -y \
@@ -20,11 +22,45 @@ RUN apt update \
 
 RUN export MY_INSTALL_DIR=/install \
     && mkdir -p $MY_INSTALL_DIR \
-    && export PATH="$MY_INSTALL_DIR/bin:$PATH" \
     && git clone --recurse-submodules -b v1.66.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc \
     && cd grpc \
     && mkdir -p cmake/build \
     && cd cmake/build \
+    && cmake -DgRPC_INSTALL=ON \
+        -DgRPC_BUILD_TESTS=OFF \
+        -DCMAKE_CXX_STANDARD=17 \
+        -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR \
+        ../.. \
+    && make -j 8 \
+    && make install
+
+# -------------------------------------------------------------------------------------------------
+# GRPC ROS1
+# -------------------------------------------------------------------------------------------------
+
+# Build gRPC for use in both sides of the bridge
+FROM ubuntu:focal AS grpc_base_ros1
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt update \
+    && apt install -y \
+        git \
+        cmake \
+        build-essential \
+        autoconf \
+        libtool \
+        pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=grpc_base_ros2 /grpc /grpc
+RUN export MY_INSTALL_DIR=/install \
+    && mkdir -p $MY_INSTALL_DIR \
+    && cd grpc \
+    && mkdir -p cmake/build \
+    && cd cmake/build \
+    && rm -rf * \
+    && export MAKE=/usr/bin/make \
     && cmake -DgRPC_INSTALL=ON \
         -DgRPC_BUILD_TESTS=OFF \
         -DCMAKE_CXX_STANDARD=17 \
@@ -49,7 +85,7 @@ RUN apt update \
     && apt install -y ros-${ROS2_DISTRO}-rmw-cyclonedds-cpp \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies and build all message types
+# Install system message types
 ARG SYSTEM_PACKAGES=""
 RUN apt update && \
     apt install -y python3-pip && \
@@ -62,14 +98,14 @@ RUN apt update && \
 
     
 # Copy user packages into the image
-COPY docker/mapped /user_ws/src/
+COPY docker/mapped/ros2 /user_ws/src/
     
 # Clone git-based user packages
-ARG USER_REPOS=""
+ARG USER_ROS2_REPOS=""
 WORKDIR /user_ws/src
 RUN --mount=type=ssh \
-    if [ ! -z "${USER_REPOS}" ]; then\
-        echo "${USER_REPOS}" | tr ";" "\n" | while read -r repo; do \
+    if [ ! -z "${USER_ROS2_REPOS}" ]; then\
+        echo "${USER_ROS2_REPOS}" | tr ";" "\n" | while read -r repo; do \
             [[ -z "$repo" ]] && continue; \
             git clone $repo; \
         done;\
@@ -84,7 +120,7 @@ RUN rosdep update \
 RUN source /opt/ros/${ROS2_DISTRO}/setup.bash && colcon build && echo "source /user_ws/install/setup.bash" >> ~/.profile
 
 # Copy the generated protoc and gRPC libraries
-COPY --from=grpc_base /install /install
+COPY --from=grpc_base_ros2 /install /install
 ENV PATH="/install/bin:$PATH"
 
 # Generate proto files
@@ -109,10 +145,67 @@ ARG MESSAGE_PACKAGES
 ENV MESSAGE_PACKAGES=${MESSAGE_PACKAGES}
 RUN source /opt/ros/${ROS2_DISTRO}/setup.bash \
     && source ~/.profile \
-    && echo "$CMAKE_PREFIX_PATH" \
     && CMAKE_PREFIX_PATH="/install:$CMAKE_PREFIX_PATH" colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release \
     && echo "source /colcon_ws/install/setup.bash" >> ~/.profile
 
 # -------------------------------------------------------------------------------------------------
 # ROS1
 # -------------------------------------------------------------------------------------------------
+
+FROM ros:${ROS1_DISTRO}-ros-base AS ros1_base
+ARG ROS1_DISTRO
+
+SHELL ["/bin/bash", "-lc"]
+
+# Install system message types
+ARG SYSTEM_PACKAGES=""
+RUN apt update && \
+    apt install -y git python3-pip python3-catkin-tools && \
+    if [ ! -z "${SYSTEM_PACKAGES}" ]; then \
+        for pkg in ${SYSTEM_PACKAGES}; do\
+            apt install -y ros-${ROS1_DISTRO}-$pkg; \
+        done; \
+    fi && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy user packages into the image
+COPY docker/mapped/ros1 /user_ws/src/
+    
+# Clone git-based user packages
+ARG USER_ROS1_REPOS=""
+WORKDIR /user_ws/src
+RUN --mount=type=ssh \
+    if [ ! -z "$USER_ROS1_REPOS" ]; then\
+        echo "$USER_ROS1_REPOS" | tr ";" "\n" | while read -r repo; do \
+            [[ -z "$repo" ]] && continue; \
+            git clone $repo; \
+        done;\
+    fi
+
+# Build user packages
+WORKDIR /user_ws
+RUN rosdep update \
+    && apt update \
+    && rosdep install --from-paths /user_ws/src -i -y \
+    && rm -rf /var/lib/apt/lists*
+RUN source /opt/ros/${ROS1_DISTRO}/setup.bash && catkin build && echo "source /user_ws/devel/setup.bash" >> ~/.profile
+
+# Copy the generated protoc and gRPC libraries
+COPY --from=grpc_base_ros1 /install /install
+ENV PATH="/install/bin:$PATH"
+
+# Copy generated library code
+COPY --from=ros2_base /generated /generated
+
+# Add the ROS1 package and compile
+WORKDIR /catkin_ws
+COPY ros1 /catkin_ws/src/ros1
+COPY common /common
+
+ARG MESSAGE_PACKAGES
+ENV MESSAGE_PACKAGES=${MESSAGE_PACKAGES}
+RUN source /opt/ros/${ROS1_DISTRO}/setup.bash \
+    && source ~/.profile \
+    && catkin config --cmake-args -DCMAKE_BUILD_TYPE=Release \
+    && CMAKE_PREFIX_PATH="/install:$CMAKE_PREFIX_PATH" catkin build --cmake-args -DCMAKE_BUILD_TYPE=Release \
+    && echo "source /catkin_ws/devel/setup.bash" >> ~/.profile

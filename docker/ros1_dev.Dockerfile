@@ -22,7 +22,7 @@ RUN sudo chown -R $USERNAME /home/$USERNAME
 
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 
-ENV ROSCONSOLE_FORMAT '[${severity}] [${node} -> ${function}]: ${message}'
+ENV ROSCONSOLE_FORMAT='[${severity}] [${node} -> ${function}]: ${message}'
 
 # -------------------------------------------------------------------------------------------------
 # SETUP ROS1 --------------------------------------------------------------------------------------
