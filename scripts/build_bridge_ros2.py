@@ -4,6 +4,7 @@ import subprocess
 import ros2interface.api
 
 generated_files = []
+message_dependencies = set[str]()
 
 types_map = {
     'builtin_interfaces/Time': 'google.protobuf.Timestamp',
@@ -63,6 +64,12 @@ def resolve_import(field_type: str) -> str:
 
     return field_type.replace('/', '.') + '.proto'
 
+def resolve_datatype(field_type: str) -> str:
+    import_name = resolve_import(field_type)
+    # Remove the .proto extension
+    import_name = import_name[:-6]
+    return import_name.replace('.', '/')
+
 def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str) -> None:
     full_message_type = ros2interface.api.utilities.get_message(msg_package + '/' + msg_type)
 
@@ -72,6 +79,10 @@ def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str) 
 
     file_name = f'{msg_package}.{msg_type}.proto'
     file_path = os.path.join(proto_path, file_name)
+
+    if file_name in generated_files:
+        return
+
     generated_files.append(file_name)
     with open(file_path, 'w') as f:
         f.write('syntax = "proto3";\n')
@@ -87,6 +98,8 @@ def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str) 
                 if imported_type_name not in imported_names:
                     imported_names.add(imported_type_name)
                     f.write(f'import "{imported_type_name}";\n')
+                if field_type not in types_map.keys():
+                    message_dependencies.add(resolve_datatype(field_type))
 
         # Resolve the actual message definition
         f.write(f'message {msg_type} {"{"}\n')
@@ -120,7 +133,9 @@ def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str) 
             f'{"}"}\n'
         )
 
-def main(code_gen_path: str):
+def main(code_gen_path: str, allowed_types: list[str]):
+    global message_dependencies
+
     if not code_gen_path.startswith('/') and not code_gen_path.startswith('.'):
         code_gen_path = os.path.join('.', code_gen_path)
     proto_path = os.path.join(code_gen_path, 'proto')
@@ -133,16 +148,30 @@ def main(code_gen_path: str):
 
     all_msgs = ros2interface.api.get_message_interfaces()
     for msg_package, msg_types in all_msgs.items():
+        all_allowed: bool = f'{msg_package}/ALL' in allowed_types
         for msg_type in msg_types:
             if not msg_type.startswith('msg/'):
                 print(f'Skipping unknown interface {msg_package}/{msg_type}')
                 continue
-            ros2_message_to_proto_msg(msg_package, msg_type[4:], proto_path)
+            
+            trimmed_msg_type = msg_type[4:]
+            if not all_allowed and f'{msg_package}/{trimmed_msg_type}' not in allowed_types:
+                continue 
+            ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path)
+
+        print(f'{message_dependencies=}')
+        while len(message_dependencies) > 0:
+            tmp_message_dependencies = list(message_dependencies)
+            message_dependencies = set[str]()
+            for msg_type in tmp_message_dependencies:
+                print(f'{msg_type=}')
+                msg_package, trimmed_msg_type = msg_type.split('/')
+                ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path)
 
     # Invoke protoc on the generated files
     if not os.path.exists(cpp_path):
         os.mkdir(cpp_path)
-    subprocess.run(['/home/alex/.local/src/grpc/install/bin/protoc', f'--proto_path={proto_path}', f'--cpp_out={cpp_path}', f'--grpc_out={grpc_path}', '--plugin=protoc-gen-grpc=/home/alex/.local/src/grpc/install/bin/grpc_cpp_plugin', *generated_files])
+    subprocess.run(['/install/bin/protoc', f'--proto_path={proto_path}', f'--cpp_out={cpp_path}', f'--grpc_out={grpc_path}', '--plugin=protoc-gen-grpc=/install/bin/grpc_cpp_plugin', *generated_files])
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
@@ -150,4 +179,4 @@ if __name__ == '__main__':
         exit(1)
 
     code_gen_path = sys.argv[1]
-    main(code_gen_path)
+    main(code_gen_path, allowed_types=sys.argv[2:])

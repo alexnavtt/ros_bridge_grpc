@@ -37,23 +37,32 @@ def main(config_file: str):
         system_packages += f'{msg_package} '
         for msg_type in message_types:
             allowed_types += f'{msg_package}/{msg_type} '
-    output_dict['ROS_BRIDGE_GRPC_SYSTEM_PACKAGES'] = system_packages
+    output_dict['ROS_BRIDGE_GRPC_MESSAGE_PACKAGES'] = system_packages
+    output_dict['ROS_BRIDGE_GRPC_SYSTEM_PACKAGES'] = system_packages.replace('_', '-')
     output_dict['ROS_BRIDGE_GRPC_ALLOWED_TYPES'] = allowed_types
 
     # Custom message types
-    if custom_packages := config_dict.get('custom_packages', None):
-        git_urls = ""
-        for repo_clone_url in custom_packages.get('git_urls', list[str]()):
-            git_urls += f'{repo_clone_url};'
-        output_dict['ROS_BRIDGE_GRPC_USER_REPOS'] = git_urls
+    git_urls = ""
+    for custom_package in config_dict.get('custom_packages', list[dict[str, str]]()):
 
-        source_dir = os.path.abspath(__file__)
-        mapped_dir = os.path.join(source_dir, '..', 'docker', 'mapped')
+        if git_url := custom_package.get('url', None):
+            git_urls += f'{git_url};'
 
-        for local_package in custom_packages.get('package_paths', list[str]()):
-            _, target_dir_name = os.path.split(local_package)
-            print(f'{local_package=}, {mapped_dir=}, {target_dir_name=}')
-            subprocess.run(['mount', '--bind', local_package, os.path.join(mapped_dir, target_dir_name)])
+        elif local_path := custom_package.get('path', None):
+            source_dir, _ = os.path.split(os.path.abspath(__file__))
+            mapped_dir = os.path.join(source_dir, '..', 'docker', 'mapped')
+
+            _, target_dir_name = os.path.split(local_path)
+            mapped_target = os.path.join(mapped_dir, target_dir_name)
+            os.makedirs(mapped_target, exist_ok=True)
+            subprocess.run(['sudo', 'mount', '--bind', local_path, mapped_target])
+
+        else:
+            continue
+
+        output_dict['ROS_BRIDGE_GRPC_MESSAGE_PACKAGES'] += f' {custom_package["package_name"]}'
+
+    output_dict['ROS_BRIDGE_GRPC_USER_REPOS'] = git_urls
 
     # Compatibiltiy overrides
     output_dict['ROS_BRIDGE_GRPC_COMPAT_OVERRIDES'] = ' '.join(config_dict.get('compatibility_overrides', list[str]()))

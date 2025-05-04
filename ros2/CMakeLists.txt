@@ -7,7 +7,12 @@ find_package(Protobuf REQUIRED)
 find_package(gRPC REQUIRED)
 find_package(utf8_range REQUIRED)
 
-find_package(std_msgs REQUIRED)
+string(STRIP "$ENV{MESSAGE_PACKAGES}" PACKAGE_LIST_STRING)
+separate_arguments(PACKAGE_LIST UNIX_COMMAND "${PACKAGE_LIST_STRING}")
+message("PACKAGE LIST = ${PACKAGE_LIST}")
+foreach(pkg IN LISTS PACKAGE_LIST)
+    find_package(${pkg} REQUIRED)
+endforeach()
 
 include_directories(
     /generated/conversions
@@ -34,7 +39,7 @@ target_link_libraries(bridge_server_ros2 gRPC::grpc++ conversions)
 
 ament_target_dependencies(conversions
     rclcpp
-    std_msgs
+    ${PACKAGE_LIST}
 )
 
 install(TARGETS
