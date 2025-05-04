@@ -25,6 +25,13 @@ The ROS1 docker system then parses the protobuf message definition files generat
 The package is designed to do the heavy work for you, so all you have to do is fill out your desired bridge configuration and docker will do the rest. Here's the general format of a config file:
 
 ```yaml
+ros1_distro: noetic # only supported ROS1 distro
+ros2_distro: humble # supports humble, iron, jazzy
+
+# Most people won't need to change these
+port1: 50051
+port2: 50052
+
 msg_packages:
     std_msgs:
         - ALL
