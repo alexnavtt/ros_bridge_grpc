@@ -1,3 +1,3 @@
 generated/
-config/*
-mapped/*
+config
+mapped
