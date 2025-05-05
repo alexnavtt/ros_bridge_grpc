@@ -14,7 +14,7 @@ However, with this performance hit we buy stability across new ROS distros and o
 
 ## How it works
 
-The code generation pipeline starts on the ROS2 side. All configured message types are installed **[TODO: Figure out custom message types]** and sourced in the ROS2 workspace. `ros1_bridge_grpc` then leverages the `rclpy` suite of code introspection functions to examine the message definitions and generate protobuf message and service definitions which match the ROS message type definition. Note that there are some limitations here, as the interfaces for ROS and gRPC are somewhat different, and so not all message features and field data types can be respected.
+The code generation pipeline starts on the ROS2 side. All configured message types are installed and sourced in the ROS2 workspace. `ros1_bridge_grpc` then leverages the `rclpy` suite of code introspection functions to examine the message definitions and generate protobuf message and service definitions which match the ROS message type definition. Note that there are some limitations here, as the interfaces for ROS and gRPC are somewhat different, and so not all message features and field data types can be respected.
 
 The protobuf message files are then passed to the protoc compiler to generate both protobuf and gRPC C++ library code. These message and library files will be shared by both the ROS1 and ROS2 sides of the bridge to ensure compatibility, and are used by both the ROS1 and ROS2 docker systems to create C++ functions which convert seamlessly between ROS(1/2) and gRPC. These conversion functions also include the necessary calls in either ROS1 or ROS2 to generate ROS subscribers and publishers and connect them to their gRPC counterparts.
 
@@ -22,19 +22,31 @@ The ROS1 docker system then parses the protobuf message definition files generat
 
 ## Installation
 
+The first and only major step is to install docker. You can follow along with the [official installation instructions](https://docs.docker.com/engine/install/) to make sure you have the most up-to-date version on your system.
+
 The package is designed to do the heavy work for you, so all you have to do is fill out your desired bridge configuration and docker will do the rest. Here's the general format of a config file:
 
 ```yaml
-ros1_distro: noetic # only supported ROS1 distro
-ros2_distro: humble # supports humble, iron, jazzy
+ros1:
+    distro: noetic
+    ROS_MASTER_URI: "http://localhost:11311"
+    ROS_HOSTNAME: null
+    ROS_IP: null
+
+ros2:
+    distro: humble
+    ROS_DOMAIN_ID: 0
+    RMW_IMPLEMENTATION: cyclonedds_cpp
+    CYCLONEDDS_URI: env   # read this value from the host environment
+    # CYCLONEDDS_URI: /path/to/uri/file
 
 # Most people won't need to change these
 port1: 50051
 port2: 50052
 
 msg_packages:
-    std_msgs:
-        - ALL
+    std_msgs: [ALL]
+    tf2_ros: [ALL]
 
     geometry_msgs:
         - Point
@@ -45,14 +57,48 @@ msg_packages:
         - PointCloud2
 
 custom_packages:
-    git_urls: 
-        - https://github.com/my_org/my_package.git -b my_branch
-        - git@github.com:my_org/my_other_package.git
-
-    package_paths:
-        - /local/path/to/my/awesome/interface_package
-        - /local/path/to/my/non_rosdep/interface/package/dependency
-
-compatibility_overrides:
-    - std_msgs/Header
+    - {package_name: my_package,
+      url: "https://github.com/my_org/my_package.git -b my_branch"}
+    - {package_name: my_other_package,
+       url: "git@github.com:my_org/my_other_package.git"}
+    - {package_name: local_package,
+       path: "/local/path/to/my/awesome/interface_package"}
+    - {package_name: local_package_dependency,
+       path: "/local/path/to/my/non_rosdep/interface/package/dependency"}
 ```
+
+Once you have all your desired message packages properly configured, navigate to the `scripts` folder in this repo and run 
+
+```bash
+sudo -E ./build.sh <path/to/your/config/file>
+```
+
+Your docker images should build, which will take at least 10 minutes, but potentially much more depending on how many message types your configured to be baked in. 
+
+## Running the Bridge
+
+Once complete, you can configure your runtime settings in a separate yaml file which lists the topics and types that you want to bridge. For example:
+
+```yaml
+registered_topics:
+    - "/velodyne_points:sensor_msgs/PointCloud2"
+    - "/my_robot/joint_states:sensor_msgs/JointState"
+    - "/tf:tf2_msgs/TFMessage"
+    - "/tf_static:tf2_msgs/TFMessage"
+```
+Navigate to the `docker` folder of this repo, and run the following commands:
+
+```bash
+export ROS_BRIDGE_CONFIG=<path/to/your/runtime/config>
+docker compose up
+```
+
+Note that the following runtime settings for ROS1 and ROS2 are read directory from your environemnt:
+ * `ROS_DOMAIN_ID`
+ * `RMW_IMPLEMENTATION`
+ * `CYCLONEDDS_URI`
+ * `ROS_MASTER_URI`
+ * `ROS_HOSTNAME`
+ * `ROS_IP`
+
+And that's it! You should be good to go to pass messages seemlessly between ROS1 and ROS2.
