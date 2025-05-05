@@ -17,12 +17,8 @@ services:
     container_name: ros_bridge_container
     tty: true
     stdin_open: true
-    environment:
-      - ROS_DOMAIN_ID=0 # TODO: Set in config
-      - RMW_IMPLEMENTATION
-      - CYCLONEDDS_URI=/cyclonedds_uri.xml
     volumes:
-      - ${CYCLONEDDS_URI:-/dev/null}:/cyclonedds_uri.xml
+      - ${ROS_BRIDGE_CONFIG:-/dev/null}:/ros_params.yaml
     network_mode: host
     pid: host
     ipc: host
@@ -42,3 +38,9 @@ services:
     build:
       target: ros2_base
     entrypoint: /entrypoints/run_ros2_bridge.bash
+    volumes:
+      - ${CYCLONEDDS_URI:-/dev/null}:/cyclonedds_uri.xml
+    environment:
+      - ROS_DOMAIN_ID
+      - RMW_IMPLEMENTATION
+      - CYCLONEDDS_URI=/cyclonedds_uri.xml
