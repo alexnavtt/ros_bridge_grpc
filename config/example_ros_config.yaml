@@ -1,0 +1,6 @@
+registered_topics:
+    - "/my_string_topic:std_msgs/String"
+    - "/velodyne_points:sensor_msgs/PointCloud2"
+    - "/my_robot/joint_states:sensor_msgs/JointState"
+    - "/tf:tf2_msgs/TFMessage"
+    - "/tf_static:tf2_msgs/TFMessage"
