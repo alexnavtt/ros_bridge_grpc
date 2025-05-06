@@ -41,10 +41,14 @@ public:
         // For each of them, register the corresponding communication elements
         std::string type;
         for (const std::string& topic : registered_topics_param) {
+            bool latched = false;
+
             if (!nh.getParam(topic + "/type", type)) {
                 ROS_ERROR("Missing required message type parameter for topic %s", topic.c_str());
                 continue;
             }
+
+            nh.getParam(topic + "/transient_local", latched);
 
             if (!publisher_registration_callbacks.count(type) || !subscriber_registration_callbacks.count(type)) {
                 ROS_ERROR("Requested type %s for topic %s is unknown to the bridge server, cannot make a connnection!", type.c_str(), topic.c_str());
@@ -61,8 +65,8 @@ public:
 
             ROS_INFO("Registering topic %s using type %s", topic.c_str(), type.c_str());
             registered_topics_and_types[topic] = type;
-            publishers[topic] = publisher_registration_callbacks.at(type)(topic, nh, builder);
-            subscribers[topic] = subscriber_registration_callbacks.at(type)(topic, nh, channel);
+            publishers[topic] = publisher_registration_callbacks.at(type)(topic, nh, builder, latched, false);
+            subscribers[topic] = subscriber_registration_callbacks.at(type)(topic, nh, channel, latched, false);
         }
 
         grpc_queue = builder.AddCompletionQueue();
@@ -86,11 +90,11 @@ public:
     std::unordered_map<std::string, std::string> registered_topics_and_types;
 
     // The publisher registration callbacks, which create a publisher to ROS2 and returns a gRPC service
-    using PublisherRegisterCallback_t = std::function<std::any(const std::string&, ros::NodeHandle&, grpc::ServerBuilder&)>;
+    using PublisherRegisterCallback_t = std::function<std::any(const std::string&, ros::NodeHandle&, grpc::ServerBuilder&, bool, bool)>;
     static std::unordered_map<std::string, PublisherRegisterCallback_t> publisher_registration_callbacks;
 
     // The subscriptions callbacks, which create a subscription to ROS2 message and a client to gRPC
-    using SubscriberRegisterCallback_t = std::function<std::shared_ptr<ros::Subscriber>(const std::string&, ros::NodeHandle&, std::shared_ptr<grpc::Channel>)>;
+    using SubscriberRegisterCallback_t = std::function<std::shared_ptr<ros::Subscriber>(const std::string&, ros::NodeHandle&, std::shared_ptr<grpc::Channel>, bool, bool)>;
     static std::unordered_map<std::string, SubscriberRegisterCallback_t> subscriber_registration_callbacks;
 
     // The actual subscribers and publishers used

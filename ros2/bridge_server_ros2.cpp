@@ -56,10 +56,19 @@ public:
         // For each of them, register the corresponding communication elements
         rcl_interfaces::msg::ParameterDescriptor topic_type_param;
         topic_type_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
-
+        rcl_interfaces::msg::ParameterDescriptor transient_local_param;
+        transient_local_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
+        rcl_interfaces::msg::ParameterDescriptor best_effort_param;
+        best_effort_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
         for (const std::string& topic : registered_topics_param) {
             topic_type_param.name = topic + ".type";
             const std::string type = declare_parameter<std::string>(topic_type_param.name, topic_type_param);
+            
+            transient_local_param.name = topic + ".transient_local";
+            const bool is_transient_local = declare_parameter(transient_local_param.name, false, transient_local_param);
+
+            best_effort_param.name = topic + ".best_effort";
+            const bool is_best_effort = declare_parameter(best_effort_param.name, false, best_effort_param);
 
             if (!publisher_registration_callbacks.count(type) || !subscriber_registration_callbacks.count(type)) {
                 RCLCPP_ERROR(get_logger(), "Requested type %s for topic %s is unknown to the bridge server, cannot make a connnection!", type.c_str(), topic.c_str());
@@ -76,8 +85,8 @@ public:
 
             RCLCPP_INFO(get_logger(), "Registering topic %s using type %s", topic.c_str(), type.c_str());
             registered_topics_and_types[topic] = type;
-            publishers[topic] = publisher_registration_callbacks.at(type)(topic, *this, builder);
-            subscribers[topic] = subscriber_registration_callbacks.at(type)(topic, *this, channel);
+            publishers[topic] = publisher_registration_callbacks.at(type)(topic, *this, builder, is_transient_local, is_best_effort);
+            subscribers[topic] = subscriber_registration_callbacks.at(type)(topic, *this, channel, is_transient_local, is_best_effort);
         }
 
         grpc_queue = builder.AddCompletionQueue();
@@ -101,11 +110,11 @@ public:
     std::unordered_map<std::string, std::string> registered_topics_and_types;
 
     // The publisher registration callbacks, which create a publisher to ROS2 and returns a gRPC service
-    using PublisherRegisterCallback_t = std::function<std::shared_ptr<grpc::Service>(const std::string&, rclcpp::Node&, grpc::ServerBuilder&)>;
+    using PublisherRegisterCallback_t = std::function<std::shared_ptr<grpc::Service>(const std::string&, rclcpp::Node&, grpc::ServerBuilder&, bool, bool)>;
     static std::unordered_map<std::string, PublisherRegisterCallback_t> publisher_registration_callbacks;
 
     // The subscriptions callbacks, which create a subscription to ROS2 message and a client to gRPC
-    using SubscriberRegisterCallback_t = std::function<rclcpp::SubscriptionBase::SharedPtr(const std::string&, rclcpp::Node&, std::shared_ptr<grpc::Channel>)>;
+    using SubscriberRegisterCallback_t = std::function<rclcpp::SubscriptionBase::SharedPtr(const std::string&, rclcpp::Node&, std::shared_ptr<grpc::Channel>, bool, bool)>;
     static std::unordered_map<std::string, SubscriberRegisterCallback_t> subscriber_registration_callbacks;
 
     // The actual subscribers and publishers used

@@ -118,7 +118,7 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, basic_fields: 
         # Add function to create subscriber and a gRPC publisher
         f.write(
             f'template<>\n'
-            f'std::shared_ptr<SUBSCRIBER_BASE> registerSubscription<{ros_type}>(const std::string& topic, NODE nh, std::shared_ptr<grpc::Channel> channel) {"{"}\n'
+            f'std::shared_ptr<SUBSCRIBER_BASE> registerSubscription<{ros_type}>(const std::string& topic, NODE nh, std::shared_ptr<grpc::Channel> channel, [[maybe_unused]] bool transient_local, [[maybe_unused]] bool best_effort) {"{"}\n'
             f'    static std::map<grpc::Channel*, std::unique_ptr<{msg_package}_proto::Send{msg_type}ROS::Stub>> stubs;\n'
             f'    if (!stubs.count(channel.get())) {"{"}\n'
             f'        stubs[channel.get()] = std::move({msg_package}_proto::Send{msg_type}ROS::NewStub(channel));\n'
@@ -151,7 +151,7 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, basic_fields: 
             f'        if (!status.ok()) LOG_INFO(nh, "gRPC call failed sending message type {ros_type} across bridge");\n'
             f'    {"}"};\n'
             f'    \n'
-            f'    auto sub = CREATE_SUB_POINTER(nh, {ros_type}, topic, callback);\n'
+            f'    auto sub = CREATE_SUB_POINTER(nh, {ros_type}, topic, callback, transient_local, best_effort);\n'
             f'    return std::static_pointer_cast<SUBSCRIBER_BASE>(sub);\n'
             f'{"}"}\n\n'
         )
@@ -159,7 +159,7 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, basic_fields: 
         # Add function to create publisher and a gRPC subscription
         f.write(
             f'template<>\n'
-            f'std::shared_ptr<grpc::Service> registerPublisher<{ros_type}>(const std::string& topic, NODE nh, grpc::ServerBuilder& server_builder) {"{"}\n'
+            f'std::shared_ptr<grpc::Service> registerPublisher<{ros_type}>(const std::string& topic, NODE nh, grpc::ServerBuilder& server_builder, bool transient_local, bool best_effort) {"{"}\n'
             f'    class SendROSMessageImpl final : public {msg_package}_proto::Send{msg_type}ROS::Service {"{"}\n'
             f'    public:\n'
             f'        grpc::Status SendROSMessage (grpc::ServerContext* context, const {proto_type}Packet* message, google::protobuf::Empty* response) override {"{"}\n'
@@ -173,8 +173,8 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, basic_fields: 
             f'            return grpc::Status::OK;\n'
             f'        {"}"}\n'
             f'    \n'
-            f'        void add_topic(NODE node, std::string topic) {"{"}\n'
-            f'            pubs_[topic] = CREATE_PUB_POINTER(node, {ros_type}, topic);\n'
+            f'        void add_topic(NODE node, std::string topic, [[maybe_unused]] bool transient_local, [[maybe_unused]] bool best_effort) {"{"}\n'
+            f'            pubs_[topic] = CREATE_PUB_POINTER(node, {ros_type}, topic, transient_local, best_effort);\n'
             f'        {"}"}\n'
             f'    \n'
             f'    private:\n'      
@@ -186,7 +186,7 @@ def generate_cpp_conversion_code(msg_package: str, msg_type: str, basic_fields: 
             f'        service = std::make_shared<SendROSMessageImpl>();\n'
             f'        server_builder.RegisterService(service.get());\n'
             f'    {"}"}\n'
-            f'    service->add_topic(nh, topic);\n'
+            f'    service->add_topic(nh, topic, transient_local, best_effort);\n'
             f'    return std::static_pointer_cast<grpc::Service>(service);\n'
             f'{"}"};\n'
         )
