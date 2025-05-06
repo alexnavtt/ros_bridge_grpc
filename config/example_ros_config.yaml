@@ -1,6 +1,24 @@
-registered_topics:
-    - "/my_string_topic:std_msgs/String"
-    - "/velodyne_points:sensor_msgs/PointCloud2"
-    - "/my_robot/joint_states:sensor_msgs/JointState"
-    - "/tf:tf2_msgs/TFMessage"
-    - "/tf_static:tf2_msgs/TFMessage"
+registered_topics: 
+  - /my_string_topic
+  - /velodyne_points
+  - /my_robot/joint_states
+  - /tf
+  - /tf_static
+
+/my_string_topic: 
+  type: std_msgs/String
+
+/velodyne_points:
+  type: sensor_msgs/PointCloud2
+  best_effort: true
+
+/my_robot/joint_states:
+  type: sensor_msgs/JointState
+  best_effort: true
+
+/tf:
+  type: tf2_msgs/TFMessage
+  
+/tf_static:
+  type: tf2_msgs/TFMessage
+  transient_local: true

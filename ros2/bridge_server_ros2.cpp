@@ -54,10 +54,12 @@ public:
         std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(grpc_address_2, grpc::InsecureChannelCredentials());
 
         // For each of them, register the corresponding communication elements
-        for (const std::string& topic_name_and_type : registered_topics_param) {
-            const std::size_t delim = topic_name_and_type.find(':');
-            const std::string topic = topic_name_and_type.substr(0, delim);
-            const std::string type  = topic_name_and_type.substr(delim+1); 
+        rcl_interfaces::msg::ParameterDescriptor topic_type_param;
+        topic_type_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+
+        for (const std::string& topic : registered_topics_param) {
+            topic_type_param.name = topic + ".type";
+            const std::string type = declare_parameter<std::string>(topic_type_param.name, topic_type_param);
 
             if (!publisher_registration_callbacks.count(type) || !subscriber_registration_callbacks.count(type)) {
                 RCLCPP_ERROR(get_logger(), "Requested type %s for topic %s is unknown to the bridge server, cannot make a connnection!", type.c_str(), topic.c_str());
