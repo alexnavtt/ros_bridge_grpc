@@ -13,8 +13,8 @@ services:
         USER_ROS2_REPOS: $ROS_BRIDGE_GRPC_USER_ROS2_REPOS
         ALLOWED_TYPES: $ROS_BRIDGE_GRPC_ALLOWED_TYPES
         MESSAGE_PACKAGES: $ROS_BRIDGE_GRPC_MESSAGE_PACKAGES
-    image: ros_bridge_image
-    container_name: ros_bridge_container
+    image: ros_bridge_grpc
+    container_name: ros_bridge_grpc_container
     tty: true
     stdin_open: true
     volumes:
@@ -25,16 +25,16 @@ services:
 
   ros1_bridge:
     extends: ros_bridge
-    image: ros1_bridge_image
-    container_name: ros1_bridge_conainer
+    image: ros1_bridge:$ROS_BRIDGE_GRPC_ROS1_DISTRO
+    container_name: ros1_bridge_${ROS_BRIDGE_GRPC_ROS1_DISTRO}
     build:
       target: ros1_base
     entrypoint: /entrypoints/run_ros1_bridge.bash
 
   ros2_bridge:
     extends: ros_bridge
-    image: ros2_bridge_image
-    container_name: ros2_bridge_conainer
+    image: ros2_bridge:$ROS_BRIDGE_GRPC_ROS2_DISTRO
+    container_name: ros2_bridge_${ROS_BRIDGE_GRPC_ROS2_DISTRO}
     build:
       target: ros2_base
     entrypoint: /entrypoints/run_ros2_bridge.bash
