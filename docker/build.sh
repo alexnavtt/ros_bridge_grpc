@@ -1,7 +1,6 @@
 #!/usr/bin/bash
 
-eval "$(sudo -E python3 ../set_env_params.py $1)"
-cd ../docker
+eval "$(sudo -E python3 ../scripts/set_env_params.py $1)"
 docker compose build
 
 for file in ../docker/mapped/ros1/*; do
