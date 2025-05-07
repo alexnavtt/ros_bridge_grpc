@@ -62,7 +62,7 @@ compatibility_overrides:
 Once you have all your desired message packages properly configured, navigate to the `scripts` folder in this repo and run 
 
 ```bash
-sudo -E ./build.sh <path/to/your/config/file>
+source build.sh <path/to/your/config/file>
 ```
 
 Your docker images should build, which will take at least 10 minutes, but potentially much more depending on how many message types you configured to be baked in. 
