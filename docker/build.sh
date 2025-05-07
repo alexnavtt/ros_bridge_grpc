@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-eval "$(sudo -E python3 set_env_params.py $1)"
+eval "$(sudo -E python3 ../set_env_params.py $1)"
 cd ../docker
 docker compose build
 

@@ -59,7 +59,7 @@ compatibility_overrides:
     - "std_msgs/Header"
 ```
 
-Once you have all your desired message packages properly configured, navigate to the `scripts` folder in this repo and run 
+Once you have all your desired message packages properly configured, navigate to the `docker` folder in this repo and run 
 
 ```bash
 source build.sh <path/to/your/config/file>
