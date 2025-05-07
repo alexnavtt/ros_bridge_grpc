@@ -11,25 +11,10 @@ def main(config_file: str):
 
     output_dict = dict()
 
-    # ROS1 config
-    if ros1_config := config_dict.get('ros1', None):
-        output_dict['ROS_BRIDGE_GRPC_ROS1_DISTRO'] = ros1_config.get('distro', 'noetic')
-        output_dict['ROS_BRIDGE_GRPC_ROS1_URI'] = ros1_config.get('ROS_MASTER_URI', 'http://localhost:11311')
-        if ros_hostname := ros1_config.get('ROS_HOSTNAME', None):
-            output_dict['ROS_BRIDGE_GRPC_ROS1_HOSTNAME'] = ros_hostname
-        if ros_ip := ros1_config.get('ROS_IP', None):
-            output_dict['ROS_BRIDGE_GRPC_ROS1_IP'] = ros_ip
+    # Distro selection
+    output_dict['ROS_BRIDGE_GRPC_ROS1_DISTRO'] = config_dict.get('ros1_distro', 'noetic')
+    output_dict['ROS_BRIDGE_GRPC_ROS2_DISTRO'] = config_dict.get('ros2_distro', 'humble')
 
-    # ROS2 config
-    if ros2_config := config_dict.get('ros2', None):
-        output_dict['ROS_BRIDGE_GRPC_ROS2_DISTRO'] = ros2_config.get('distro', 'humble')
-        if ros_domain_id := ros2_config.get('ROS_DOMAIN_ID', None):
-            output_dict['ROS_BRIDGE_GRPC_ROS_DOMAIN_ID'] = ros_domain_id
-        if rmw_implementation := ros2_config.get('RMW_IMPLEMENTATION', 'cyclonedds_cpp'):
-            output_dict['ROS_BRIDGE_GRPC_RMW_IMPLEMENTATION'] = rmw_implementation
-        if cyclonedds_uri := ros2_config.get('CYCLONEDDS_URI', None):
-            output_dict['ROS_BRIDGE_GRPC_CYCLONEDDS_URI'] = cyclonedds_uri
-        
     # Message types
     system_packages = ""
     allowed_types = ""

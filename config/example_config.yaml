@@ -1,19 +1,5 @@
-ros1:
-    distro: noetic
-    ROS_MASTER_URI: "http://localhost:11311"
-    ROS_HOSTNAME: null
-    ROS_IP: null
-
-ros2:
-    distro: humble
-    ROS_DOMAIN_ID: 0
-    RMW_IMPLEMENTATION: cyclonedds_cpp
-    CYCLONEDDS_URI: env   # read this value from the host environment
-    # CYCLONEDDS_URI: /path/to/uri/file
-
-# Most people won't need to change these
-port1: 50051
-port2: 50052
+ros1_distro: noetic
+ros2_distro: humble
 
 msg_packages:
     std_msgs: [ALL]
@@ -28,13 +14,17 @@ msg_packages:
 
 custom_packages:
     - {package_name: my_package,
-      url: "https://github.com/my_org/my_package.git -b my_branch"}
+       ros1_url: "https://github.com/my_org/my_package.git -b noetic",
+       ros2_url: "https://github.com/my_org/my_package.git -b humble"}
     - {package_name: my_other_package,
-       url: "git@github.com:my_org/my_other_package.git"}
+       ros1_url: "git@github.com:my_org/my_other_package.git",
+       ros2_url: "git@github.com:my_org/my_other_package.git -b ros2"}
     - {package_name: local_package,
-       path: "/local/path/to/my/awesome/interface_package"}
+       ros1_path: "/local/path/to/my/awesome/ros1/interface_package",
+       ros2_path: "/local/path/to/my/awesome/ros2/interface_package"}
     - {package_name: local_package_dependency,
-       path: "/local/path/to/my/non_rosdep/interface/package/dependency"}
+       ros1_path: "/local/path/to/my/non_rosdep/ros1/interface/package/dependency",
+       ros2_path: "/local/path/to/my/non_rosdep/ros2/interface/package/dependency"}
 
 compatibility_overrides:
     - "std_msgs/Header"

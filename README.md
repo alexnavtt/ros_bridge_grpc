@@ -27,26 +27,11 @@ The first and only major step is to install docker. You can follow along with th
 The package is designed to do the heavy work for you, so all you have to do is fill out your desired bridge configuration and docker will do the rest. Here's the general format of a config file:
 
 ```yaml
-ros1:
-    distro: noetic
-    ROS_MASTER_URI: "http://localhost:11311"
-    ROS_HOSTNAME: null
-    ROS_IP: null
-
-ros2:
-    distro: humble
-    ROS_DOMAIN_ID: 0
-    RMW_IMPLEMENTATION: cyclonedds_cpp
-    CYCLONEDDS_URI: env   # read this value from the host environment
-    # CYCLONEDDS_URI: /path/to/uri/file
-
-# Most people won't need to change these
-port1: 50051
-port2: 50052
+ros1_distro: noetic
+ros2_distro: humble
 
 msg_packages:
     std_msgs: [ALL]
-    tf2_ros: [ALL]
 
     geometry_msgs:
         - Point
@@ -58,13 +43,20 @@ msg_packages:
 
 custom_packages:
     - {package_name: my_package,
-      url: "https://github.com/my_org/my_package.git -b my_branch"}
+       ros1_url: "https://github.com/my_org/my_package.git -b noetic",
+       ros2_url: "https://github.com/my_org/my_package.git -b humble"}
     - {package_name: my_other_package,
-       url: "git@github.com:my_org/my_other_package.git"}
+       ros1_url: "git@github.com:my_org/my_other_package.git",
+       ros2_url: "git@github.com:my_org/my_other_package.git -b ros2"}
     - {package_name: local_package,
-       path: "/local/path/to/my/awesome/interface_package"}
+       ros1_path: "/local/path/to/my/awesome/ros1/interface_package",
+       ros2_path: "/local/path/to/my/awesome/ros2/interface_package"}
     - {package_name: local_package_dependency,
-       path: "/local/path/to/my/non_rosdep/interface/package/dependency"}
+       ros1_path: "/local/path/to/my/non_rosdep/ros1/interface/package/dependency",
+       ros2_path: "/local/path/to/my/non_rosdep/ros2/interface/package/dependency"}
+
+compatibility_overrides:
+    - "std_msgs/Header"
 ```
 
 Once you have all your desired message packages properly configured, navigate to the `scripts` folder in this repo and run 
@@ -73,18 +65,38 @@ Once you have all your desired message packages properly configured, navigate to
 sudo -E ./build.sh <path/to/your/config/file>
 ```
 
-Your docker images should build, which will take at least 10 minutes, but potentially much more depending on how many message types your configured to be baked in. 
+Your docker images should build, which will take at least 10 minutes, but potentially much more depending on how many message types you configured to be baked in. 
 
 ## Running the Bridge
 
 Once complete, you can configure your runtime settings in a separate yaml file which lists the topics and types that you want to bridge. For example:
 
 ```yaml
-registered_topics:
-    - "/velodyne_points:sensor_msgs/PointCloud2"
-    - "/my_robot/joint_states:sensor_msgs/JointState"
-    - "/tf:tf2_msgs/TFMessage"
-    - "/tf_static:tf2_msgs/TFMessage"
+registered_topics: 
+  - /my_string_topic
+  - /velodyne_points
+  - /my_robot/joint_states
+  - /tf
+  - /tf_static
+
+/my_string_topic: 
+  type: std_msgs/String
+
+/velodyne_points:
+  type: sensor_msgs/PointCloud2
+  best_effort: false
+
+/my_robot/joint_states:
+  type: sensor_msgs/JointState
+  best_effort: true
+
+/tf:
+  type: tf2_msgs/TFMessage
+  
+/tf_static:
+  type: tf2_msgs/TFMessage
+  transient_local: true
+
 ```
 Navigate to the `docker` folder of this repo, and run the following commands:
 
