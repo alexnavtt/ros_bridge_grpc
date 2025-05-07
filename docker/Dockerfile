@@ -1,12 +1,13 @@
 ARG ROS1_DISTRO=noetic
 ARG ROS2_DISTRO=humble
+ARG ROS2_UBUNTU=jammy
 
 # -------------------------------------------------------------------------------------------------
 # GRPC ROS2
 # -------------------------------------------------------------------------------------------------
 
 # Build gRPC for use in both sides of the bridge
-FROM ubuntu:jammy AS grpc_base_ros2
+FROM ubuntu:${ROS2_UBUNTU} AS grpc_base_ros2
 
 ARG DEBIAN_FRONTEND=noninteractive
 

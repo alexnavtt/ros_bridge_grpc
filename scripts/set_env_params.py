@@ -15,6 +15,12 @@ def main(config_file: str):
     output_dict['ROS_BRIDGE_GRPC_ROS1_DISTRO'] = config_dict.get('ros1_distro', 'noetic')
     output_dict['ROS_BRIDGE_GRPC_ROS2_DISTRO'] = config_dict.get('ros2_distro', 'humble')
 
+    match output_dict['ROS_BRIDGE_GRPC_ROS2_DISTRO']:
+        case ('humble'|'iron'):
+            output_dict['ROS_BRIDGE_GRPC_ROS2_UBUNTU'] = 'jammy'
+        case ('jazzy'):
+            output_dict['ROS_BRIDGE_GRPC_ROS2_UBUNTU'] = 'noble'
+
     # Message types
     system_packages = ""
     allowed_types = ""
