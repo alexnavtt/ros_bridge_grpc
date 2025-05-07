@@ -132,8 +132,8 @@ RUN source /opt/ros/${ROS2_DISTRO}/setup.bash \
     && python3 /scripts/build_bridge_ros2.py /generated ${ALLOWED_TYPES}
 
 # Generate C++ source code to translate between proto and ROS
-COPY scripts/generate_cpp_conversion_code.py /scripts/generate_cpp_conversion_code.py
 RUN pip install proto-schema-parser
+COPY scripts/generate_cpp_conversion_code.py /scripts/generate_cpp_conversion_code.py
 RUN python3 /scripts/generate_cpp_conversion_code.py /generated
 
 # Add the ROS2 package and compile
