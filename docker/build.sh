@@ -1,5 +1,9 @@
 #!/usr/bin/bash
 
+# Make sure these folders exist
+mkdir -p mapped/ros1
+mkdir -p mapped/ros2
+
 eval "$(sudo -E python3 ../scripts/set_env_params.py $1)"
 docker compose build
 
