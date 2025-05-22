@@ -37,4 +37,5 @@ add_library(conversions SHARED ${CONVERSION_SOURCES} ${GRPC_SOURCES} ${PROTO_SOU
 target_link_libraries(conversions gRPC::grpc++ protobuf::libprotobuf utf8_range::utf8_validity ${catkin_LIBRARIES})
 
 add_executable(bridge_server_ros1 bridge_server_ros1.cpp)
+target_compile_definitions(bridge_server_ros1 PUBLIC "ROS1")
 target_link_libraries(bridge_server_ros1 conversions gRPC::grpc++ ${catkin_LIBRARIES})

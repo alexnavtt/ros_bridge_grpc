@@ -2,6 +2,12 @@
 #include <vector>
 #include <type_traits>
 
+#ifdef ROS1
+#include <boost/array.hpp>
+template<typename T, std::size_t N>
+void carefulResize(boost::array<T, N>& arr, std::size_t size) {}
+#endif
+
 template<typename T, std::size_t N>
 void carefulResize(std::array<T, N>& arr, std::size_t size) {}
 
