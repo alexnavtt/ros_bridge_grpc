@@ -19,7 +19,7 @@ services:
     tty: true
     stdin_open: true
     volumes:
-      - ${ROS_BRIDGE_CONFIG:-/dev/null}:/ros_params.yaml
+      - ${ROS_BRIDGE_RUNTIME_CONFIG:-/dev/null}:/ros_params.yaml
     network_mode: host
     pid: host
     ipc: host

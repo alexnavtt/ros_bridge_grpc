@@ -62,7 +62,8 @@ compatibility_overrides:
 Once you have all your desired message packages properly configured, navigate to the `docker` folder in this repo and run 
 
 ```bash
-source build.sh <path/to/your/config/file>
+export ROS_BRIDGE_BUILD_CONFIG=</path/to/your/config/file>
+source build.sh
 ```
 
 Your docker images should build, which will take at least 10 minutes, but potentially much more depending on how many message types you configured to be baked in. 
@@ -101,7 +102,9 @@ registered_topics:
 Navigate to the `docker` folder of this repo, and run the following commands:
 
 ```bash
-export ROS_BRIDGE_CONFIG=<path/to/your/runtime/config>
+export ROS_BRIDGE_RUNTIME_CONFIG=<path/to/your/runtime/config>
+export ROS_BRIDGE_GRPC_ROS1_DISTRO=<your_ros1_distro>
+export ROS_BRIDGE_GRPC_ROS2_DISTRO=<your_ros2_distro>
 docker compose up
 ```
 
