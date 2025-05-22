@@ -167,17 +167,19 @@ def main():
     for file_path in Path(proto_path).rglob('*.proto'):
         filename = os.path.basename(file_path)
         msg_package, msg_typename = os.path.splitext(filename)[0].split('.')
-
-        if msg_package not in message_lookup:
-            missed_packages.add(msg_package)
-            continue
         
-        if msg_typename not in message_lookup[msg_package]:
+        if msg_package not in message_lookup or msg_typename not in message_lookup[msg_package]:
+            missed_packages.add(msg_typename)
             print(f'Cannot find matching type {msg_typename} in package {msg_package}')
+            print(f'Deleting {file_path}')
+            os.remove(file_path)
             continue
 
-        if not check_msg_compatibility(msg_package, msg_typename, file_path):
+        if not check_msg_compatibility(msg_package, msg_typename, str(file_path)):
             print(f'Message {msg_package}/{msg_typename} is not compatible between ROS1 and ROS2')
+            print(f'Deleting {file_path}')
+            os.remove(file_path)
+            continue
 
     print('Unable to find matching packages for:')
     for missed_packge in sorted(missed_packages):
