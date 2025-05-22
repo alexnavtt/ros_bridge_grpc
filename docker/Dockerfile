@@ -54,9 +54,9 @@ RUN apt update \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=grpc_base_ros2 /grpc /grpc
 RUN export MY_INSTALL_DIR=/install \
     && mkdir -p $MY_INSTALL_DIR \
+    && git clone --recurse-submodules -b v1.66.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc \
     && cd grpc \
     && mkdir -p cmake/build \
     && cd cmake/build \
@@ -71,7 +71,7 @@ RUN export MY_INSTALL_DIR=/install \
     && make install
 
 # -------------------------------------------------------------------------------------------------
-# ROS2
+# ROS2 Generate
 # -------------------------------------------------------------------------------------------------
 
 FROM ros:${ROS2_DISTRO}-ros-base AS ros2_base
@@ -132,28 +132,8 @@ RUN source /opt/ros/${ROS2_DISTRO}/setup.bash \
     && mkdir /generated \
     && python3 /scripts/build_bridge_ros2.py /generated ${ALLOWED_TYPES}
 
-# Generate C++ source code to translate between proto and ROS
-RUN pip install proto-schema-parser
-COPY scripts/generate_cpp_conversion_code.py /scripts/generate_cpp_conversion_code.py
-RUN python3 /scripts/generate_cpp_conversion_code.py /generated
-
-# Add the ROS2 package and compile
-WORKDIR /colcon_ws
-COPY ros2 /colcon_ws/src/ros2
-COPY common /common
-
-ARG MESSAGE_PACKAGES
-ENV MESSAGE_PACKAGES=${MESSAGE_PACKAGES}
-RUN source /opt/ros/${ROS2_DISTRO}/setup.bash \
-    && source ~/.profile \
-    && CMAKE_PREFIX_PATH="/install:$CMAKE_PREFIX_PATH" colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release \
-    && echo "source /colcon_ws/install/setup.bash" >> ~/.profile
-
-COPY docker/entrypoints/run_ros2_bridge.bash /entrypoints/run_ros2_bridge.bash
-RUN chmod +x /entrypoints/run_ros2_bridge.bash
-
 # -------------------------------------------------------------------------------------------------
-# ROS1
+# ROS1 Generate
 # -------------------------------------------------------------------------------------------------
 
 FROM ros:${ROS1_DISTRO}-ros-base AS ros1_base
@@ -192,7 +172,7 @@ RUN rosdep update \
     && apt update \
     && rosdep install --from-paths /user_ws/src -i -y \
     && rm -rf /var/lib/apt/lists*
-RUN source /opt/ros/${ROS1_DISTRO}/setup.bash && catkin build && echo "source /user_ws/devel/setup.bash" >> ~/.profile
+RUN source /opt/ros/${ROS1_DISTRO}/setup.bash && catkin build && echo "if [ -f '/user_ws/devel/setup.bash' ]; then source /user_ws/devel/setup.bash; fi" >> ~/.profile
 
 # Copy the generated protoc and gRPC libraries
 COPY --from=grpc_base_ros1 /install /install
@@ -200,6 +180,71 @@ ENV PATH="/install/bin:$PATH"
 
 # Copy generated library code
 COPY --from=ros2_base /generated /generated
+
+# Install dependencies for the script
+RUN pip install proto-schema-parser
+
+# Verify generated proto files
+ARG ALLOWED_TYPES=""
+COPY scripts/build_bridge_ros1.py /scripts/build_bridge_ros1.py
+RUN source /opt/ros/${ROS1_DISTRO}/setup.bash \
+    && source ~/.profile \
+    && python3 /scripts/build_bridge_ros1.py /generated
+
+# -------------------------------------------------------------------------------------------------
+# ROS2 Generate Stage 2
+# -------------------------------------------------------------------------------------------------
+
+FROM ros2_base AS ros2_generated
+
+# Copy the updated generated library code after filtering
+RUN rm -rf /generated
+COPY --from=ros1_base /generated /generated
+
+# Run protoc to generate the base level proto_cpp and gRPC code
+RUN mkdir -p /generated/proto_cpp \
+    && mkdir -p /generated/grpc_cpp \
+    && find /generated/proto -name '*.proto' |  \
+    xargs /install/bin/protoc \
+    --proto_path=/generated/proto \
+    --cpp_out=/generated/proto_cpp \
+    --grpc_out=/generated/grpc_cpp \
+    --plugin=protoc-gen-grpc=/install/bin/grpc_cpp_plugin
+
+# Generate C++ source code to translate between proto and ROS
+RUN pip install proto-schema-parser
+COPY scripts/generate_cpp_conversion_code.py /scripts/generate_cpp_conversion_code.py
+RUN python3 /scripts/generate_cpp_conversion_code.py /generated
+
+# -------------------------------------------------------------------------------------------------
+# ROS2 Build
+# -------------------------------------------------------------------------------------------------
+
+FROM ros2_generated AS ros2_build
+
+# Add the ROS2 package and compile
+WORKDIR /colcon_ws
+COPY ros2 /colcon_ws/src/ros2
+COPY common /common
+
+ARG MESSAGE_PACKAGES
+ENV MESSAGE_PACKAGES=${MESSAGE_PACKAGES}
+RUN source /opt/ros/${ROS2_DISTRO}/setup.bash \
+    && source ~/.profile \
+    && CMAKE_PREFIX_PATH="/install:$CMAKE_PREFIX_PATH" colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release \
+    && echo "source /colcon_ws/install/setup.bash" >> ~/.profile
+
+COPY docker/entrypoints/run_ros2_bridge.bash /entrypoints/run_ros2_bridge.bash
+RUN chmod +x /entrypoints/run_ros2_bridge.bash
+
+# -------------------------------------------------------------------------------------------------
+# ROS1 Build
+# -------------------------------------------------------------------------------------------------
+
+FROM ros1_base AS ros1_build
+
+# Copy the updated generated library code after filtering
+COPY --from=ros2_generated /generated /generated
 
 # Add the ROS1 package and compile
 WORKDIR /catkin_ws

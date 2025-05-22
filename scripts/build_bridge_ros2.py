@@ -168,10 +168,6 @@ def main(code_gen_path: str, allowed_types: list[str]):
                 msg_package, trimmed_msg_type = msg_type.split('/')
                 ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path)
 
-    # Invoke protoc on the generated files
-    if not os.path.exists(cpp_path):
-        os.mkdir(cpp_path)
-    subprocess.run(['/install/bin/protoc', f'--proto_path={proto_path}', f'--cpp_out={cpp_path}', f'--grpc_out={grpc_path}', '--plugin=protoc-gen-grpc=/install/bin/grpc_cpp_plugin', *generated_files])
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:

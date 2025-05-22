@@ -29,15 +29,18 @@ services:
     image: ros1_bridge:$ROS_BRIDGE_GRPC_ROS1_DISTRO
     container_name: ros1_bridge_${ROS_BRIDGE_GRPC_ROS1_DISTRO}
     build:
-      target: ros1_base
+      target: ros1_build
     entrypoint: /entrypoints/run_ros1_bridge.bash
-
+    environment:
+      - ROS_MASTER_URI
+      - ROS_HOSTNAME
+    
   ros2_bridge:
     extends: ros_bridge
     image: ros2_bridge:$ROS_BRIDGE_GRPC_ROS2_DISTRO
     container_name: ros2_bridge_${ROS_BRIDGE_GRPC_ROS2_DISTRO}
     build:
-      target: ros2_base
+      target: ros2_build
     entrypoint: /entrypoints/run_ros2_bridge.bash
     volumes:
       - ${CYCLONEDDS_URI:-/dev/null}:/cyclonedds_uri.xml
