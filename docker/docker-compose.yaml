@@ -23,28 +23,43 @@ services:
     network_mode: host
     pid: host
     ipc: host
+    profiles: [all]
 
-  ros1_bridge:
+  ros1_bridge_introspection:
     extends: ros_bridge
     image: ros1_bridge:$ROS_BRIDGE_GRPC_ROS1_DISTRO
+    container_name: ros1_bridge_${ROS_BRIDGE_GRPC_ROS1_DISTRO}_introspection
+    build:
+      target: ros1_base
+    environment:
+      - ROS_MASTER_URI
+      - ROS_HOSTNAME
+
+  ros1_bridge:
+    extends: ros1_bridge_introspection
     container_name: ros1_bridge_${ROS_BRIDGE_GRPC_ROS1_DISTRO}
     build:
       target: ros1_build
     entrypoint: /entrypoints/run_ros1_bridge.bash
-    environment:
-      - ROS_MASTER_URI
-      - ROS_HOSTNAME
+    profiles: [runtime, all]
     
-  ros2_bridge:
+  ros2_bridge_introspection:
     extends: ros_bridge
     image: ros2_bridge:$ROS_BRIDGE_GRPC_ROS2_DISTRO
-    container_name: ros2_bridge_${ROS_BRIDGE_GRPC_ROS2_DISTRO}
+    container_name: ros2_bridge_${ROS_BRIDGE_GRPC_ROS2_DISTRO}_introspection
     build:
-      target: ros2_build
-    entrypoint: /entrypoints/run_ros2_bridge.bash
+      target: ros2_generated
     volumes:
       - ${CYCLONEDDS_URI:-/dev/null}:/cyclonedds_uri.xml
     environment:
       - ROS_DOMAIN_ID
       - RMW_IMPLEMENTATION
       - CYCLONEDDS_URI=/cyclonedds_uri.xml
+
+  ros2_bridge:
+    extends: ros2_bridge_introspection
+    container_name: ros2_bridge_${ROS_BRIDGE_GRPC_ROS2_DISTRO}
+    build:
+      target: ros2_build
+    entrypoint: /entrypoints/run_ros2_bridge.bash
+    profiles: [runtime, all]
