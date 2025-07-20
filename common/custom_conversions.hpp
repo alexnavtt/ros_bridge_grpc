@@ -39,3 +39,19 @@ static inline void grpc2ros(const google::protobuf::Duration& proto_msg, ROS_DUR
     ros_msg.sec = proto_msg.seconds();
     ros_msg.NANOSECONDS = proto_msg.nanos();
 }
+
+static inline void ros2grpc(const std::vector<unsigned char>& ros_msg, std::string& proto_msg) {
+    proto_msg.assign(ros_msg.begin(), ros_msg.end());
+}
+
+static inline void grpc2ros(const std::string& proto_msg, std::vector<unsigned char>& ros_msg) {
+    ros_msg.assign(proto_msg.begin(), proto_msg.end());
+}
+
+static inline void ros2grpc(const std::vector<char>& ros_msg, std::string& proto_msg) {
+    proto_msg.assign(ros_msg.begin(), ros_msg.end());
+}
+
+static inline void grpc2ros(const std::string& proto_msg, std::vector<char>& ros_msg) {
+    ros_msg.assign(proto_msg.begin(), proto_msg.end());
+}

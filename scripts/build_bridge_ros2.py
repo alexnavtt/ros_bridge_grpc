@@ -16,8 +16,9 @@ types_map = {
     'int16': 'int32',
     'boolean': 'bool',
     'octet': 'uint32',
-    # TODO: explore the use of 'bytes' here
 }
+
+bytes_types = ('int8', 'uint8', 'octet')
 
 imports_map = {
     'builtin_interfaces/Time': 'google/protobuf/timestamp.proto',
@@ -25,10 +26,17 @@ imports_map = {
 }
 
 def resolve_type(field_type: str) -> str:
+    ### Builtin types:
     if field_type in types_map:
         return types_map[field_type]
+    
+    ### Byte strings
+    # If it contains a byte type but wasn't caught by the builtin map, it's a byte string
+    elif any([byte_type in field_type for byte_type in bytes_types]):
+        return 'bytes'
 
-    # Dynmaic sized array
+    ### Repeated types (either builtin or ROS type)
+    # Dynamic sized array
     if field_type.startswith('sequence<'):
         if ',' in field_type:
             field_type = field_type[:field_type.find(',')] + '>'
@@ -43,7 +51,8 @@ def resolve_type(field_type: str) -> str:
             return 'string'
         else:
             return 'repeated ' + resolve_type(field_type[:field_type.find('<')])
-    # Single item
+        
+    ### ROS types
     else:
         if '/' in field_type:
             package_name = field_type[:field_type.find('/')]

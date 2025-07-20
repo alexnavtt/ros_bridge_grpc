@@ -16,11 +16,11 @@ loaded_msg_packages = {}
 compatible_types = {
     'float32': ['float', 'double'],
     'float64': ['float', 'double'],
-    'uint8': ['uint32'],
+    'uint8': ['uint32', 'bytes'],
     'uint16': ['uint32'],
-    'int8': ['int32'],
+    'int8': ['int32', 'bytes'],
     'int16': ['int32'],
-    'byte': ['uint32', 'int32'],
+    'byte': ['uint32', 'int32', 'bytes'],
     'time': ['google/protobuf/Timestamp'],
     'duration': ['google/protobuf/Duration'],
     'char': ['uint32', 'int32']
