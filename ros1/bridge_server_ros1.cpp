@@ -23,20 +23,20 @@ public:
         std::vector<std::string> registered_topics_param = nh.param("registered_topics", std::vector<std::string>{});
 
         // Retrieve the channel on which to create the grpc server
-        const std::string grpc_address_1_default = "localhost:50051";
-        const std::string grpc_address_1 = nh.param("grpc_address", grpc_address_1_default);
+        const std::string grpc_server_address_default = "localhost:50051";
+        const std::string grpc_server_address = nh.param("grpc_address", grpc_server_address_default);
 
-        const std::string grpc_address_2_default = "localhost:50052";
-        const std::string grpc_address_2 = nh.param("grpc_address_2", grpc_address_2_default);
+        const std::string grpc_client_address_default = "localhost:50052";
+        const std::string grpc_client_address = nh.param("grpc_client_address", grpc_client_address_default);
 
         // Create a gRPC service builder to allow all types to register their publisher callbacks with
-        ROS_INFO("Creating gRPC server on %s", grpc_address_2.c_str());
+        ROS_INFO("Creating gRPC server on %s", grpc_client_address.c_str());
         grpc::ServerBuilder builder;
-        builder.AddListeningPort(grpc_address_2, grpc::InsecureServerCredentials());
+        builder.AddListeningPort(grpc_client_address, grpc::InsecureServerCredentials());
 
         // Create a gRPC channel to allow all types to register their subscription callbacks with
-        ROS_INFO("Creating gRPC client on %s", grpc_address_1.c_str());
-        std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(grpc_address_1, grpc::InsecureChannelCredentials());
+        ROS_INFO("Creating gRPC client on %s", grpc_server_address.c_str());
+        std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(grpc_server_address, grpc::InsecureChannelCredentials());
 
         // For each of them, register the corresponding communication elements
         std::string type;

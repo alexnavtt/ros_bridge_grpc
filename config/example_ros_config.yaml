@@ -22,3 +22,6 @@ registered_topics:
 /tf_static:
   type: tf2_msgs/TFMessage
   transient_local: true
+
+grpc_server_address: 0.0.0.0:50052
+grpc_client_address: 192.168.0.100:50051

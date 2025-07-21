@@ -27,31 +27,31 @@ public:
         std::vector<std::string> registered_topics_param = declare_parameter(registered_topics_config.name, std::vector<std::string>{}, registered_topics_config);
 
         // Retrieve the channel on which to create the grpc server
-        rcl_interfaces::msg::ParameterDescriptor grpc_address_1_config;
-        const std::string grpc_address_1_default = "localhost:50051";
-        grpc_address_1_config.name = "grpc_address_1";
-        grpc_address_1_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
-        grpc_address_1_config.description = "The first port on which to perform gRPC communication in the format 'channel_ip_address:port_number'. Default localhost:50051";
-        grpc_address_1_config.read_only = true;
-        const std::string grpc_address_1 = declare_parameter(grpc_address_1_config.name, grpc_address_1_default, grpc_address_1_config);
+        rcl_interfaces::msg::ParameterDescriptor grpc_server_address_config;
+        const std::string grpc_server_address_default = "localhost:50051";
+        grpc_server_address_config.name = "grpc_server_address";
+        grpc_server_address_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+        grpc_server_address_config.description = "The first port on which to perform gRPC communication in the format 'channel_ip_address:port_number'. Default localhost:50051";
+        grpc_server_address_config.read_only = true;
+        const std::string grpc_server_address = declare_parameter(grpc_server_address_config.name, grpc_server_address_default, grpc_server_address_config);
 
         // Retrieve the channel on which to create the grpc client
-        rcl_interfaces::msg::ParameterDescriptor grpc_address_2_config;
-        const std::string grpc_address_2_default = "localhost:50052";
-        grpc_address_2_config.name = "grpc_address_2";
-        grpc_address_2_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
-        grpc_address_2_config.description = "The second port on which to perform gRPC communication in the format 'channel_ip_address:port_number'. Default localhost:50052";
-        grpc_address_2_config.read_only = true;
-        const std::string grpc_address_2 = declare_parameter(grpc_address_2_config.name, grpc_address_2_default, grpc_address_2_config);
+        rcl_interfaces::msg::ParameterDescriptor grpc_client_address_config;
+        const std::string grpc_client_address_default = "localhost:50052";
+        grpc_client_address_config.name = "grpc_client_address";
+        grpc_client_address_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+        grpc_client_address_config.description = "The second port on which to perform gRPC communication in the format 'channel_ip_address:port_number'. Default localhost:50052";
+        grpc_client_address_config.read_only = true;
+        const std::string grpc_client_address = declare_parameter(grpc_client_address_config.name, grpc_client_address_default, grpc_client_address_config);
 
         // Create a gRPC service builder to allow all types to register their publisher callbacks with
-        RCLCPP_INFO(get_logger(), "Creating gRPC server on %s", grpc_address_1.c_str());
+        RCLCPP_INFO(get_logger(), "Creating gRPC server on %s", grpc_server_address.c_str());
         grpc::ServerBuilder builder;
-        builder.AddListeningPort(grpc_address_1, grpc::InsecureServerCredentials());
+        builder.AddListeningPort(grpc_server_address, grpc::InsecureServerCredentials());
 
         // Create a gRPC channel to allow all types to register their subscription callbacks with
-        RCLCPP_INFO(get_logger(), "Creating gRPC client on %s", grpc_address_2.c_str());
-        std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(grpc_address_2, grpc::InsecureChannelCredentials());
+        RCLCPP_INFO(get_logger(), "Creating gRPC client on %s", grpc_client_address.c_str());
+        std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(grpc_client_address, grpc::InsecureChannelCredentials());
 
         // For each of them, register the corresponding communication elements
         rcl_interfaces::msg::ParameterDescriptor topic_type_param;
