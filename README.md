@@ -98,6 +98,14 @@ registered_topics:
   type: tf2_msgs/TFMessage
   transient_local: true
 
+ros1_server_address: localhost:50051
+ros2_server_address: localhost:50052
+
+# Alternately with unix sockets
+# Note that the .sock extension is required for this to work
+# /tmp is mounted to the docker images by default, but you can add others if you wish
+ros1_server_address: /tmp/ros1_server.sock
+ros2_server_address: /tmp/ros2_server.sock
 ```
 Navigate to the `docker` folder of this repo, and run the following commands:
 
