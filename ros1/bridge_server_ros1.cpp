@@ -1,5 +1,6 @@
 #include <any>
 #include <thread>
+#include <filesystem>
 #include <type_traits>
 #include <unordered_set>
 #include <unordered_map>
@@ -23,20 +24,32 @@ public:
         std::vector<std::string> registered_topics_param = nh.param("registered_topics", std::vector<std::string>{});
 
         // Retrieve the channel on which to create the grpc server
-        const std::string grpc_server_address_default = "localhost:50051";
-        const std::string grpc_server_address = nh.param("grpc_address", grpc_server_address_default);
+        const std::string ros2_server_address_default = "localhost:50051";
+        std::string ros2_server_address = nh.param("ros2_server_address", ros2_server_address_default);
 
-        const std::string grpc_client_address_default = "localhost:50052";
-        const std::string grpc_client_address = nh.param("grpc_client_address", grpc_client_address_default);
+        const std::string ros1_server_address_default = "localhost:50052";
+        std::string ros1_server_address = nh.param("ros1_server_address", ros1_server_address_default);
+
+        // If the server address is a socket, delete it if it exists and append the URI spec
+        if (std::filesystem::path(ros1_server_address).extension() == ".sock") {
+            if (std::filesystem::exists(ros1_server_address)) {
+                std::filesystem::remove(ros1_server_address);
+            }
+            ros1_server_address = "unix://" + ros1_server_address;
+        }
+
+        if (std::filesystem::path(ros2_server_address).extension() == ".sock") {
+            ros2_server_address = "unix://" + ros2_server_address;
+        }
 
         // Create a gRPC service builder to allow all types to register their publisher callbacks with
-        ROS_INFO("Creating gRPC server on %s", grpc_client_address.c_str());
+        ROS_INFO("Creating gRPC server on %s", ros1_server_address.c_str());
         grpc::ServerBuilder builder;
-        builder.AddListeningPort(grpc_client_address, grpc::InsecureServerCredentials());
+        builder.AddListeningPort(ros1_server_address, grpc::InsecureServerCredentials());
 
         // Create a gRPC channel to allow all types to register their subscription callbacks with
-        ROS_INFO("Creating gRPC client on %s", grpc_server_address.c_str());
-        std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(grpc_server_address, grpc::InsecureChannelCredentials());
+        ROS_INFO("Creating gRPC client on %s", ros2_server_address.c_str());
+        std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(ros2_server_address, grpc::InsecureChannelCredentials());
 
         // For each of them, register the corresponding communication elements
         std::string type;

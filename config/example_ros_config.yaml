@@ -23,5 +23,13 @@ registered_topics:
   type: tf2_msgs/TFMessage
   transient_local: true
 
-grpc_server_address: 0.0.0.0:50052
-grpc_client_address: 192.168.0.100:50051
+ros1_server_address: localhost:50051
+ros2_server_address: localhost:50052
+
+# For use on multiple machines
+# ros1_server_address: 192.168.0.100:20051
+# ros2_server_address: 0.0.0.0:20052
+
+# Alternately with unix sockets
+# ros1_server_address: /tmp/ros1_server.sock
+# ros2_server_address: /tmp/ros2_server.sock
