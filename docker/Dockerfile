@@ -86,6 +86,7 @@ FROM ros:${ROS2_DISTRO}-ros-base AS ros2_base
 ARG ROS2_DISTRO
 
 SHELL ["/bin/bash", "-lc"]
+ARG DEBIAN_FRONTEND=noninteractive
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 # Install cyclonedds
@@ -96,7 +97,7 @@ RUN apt update \
 # Install system message types
 ARG SYSTEM_PACKAGES=""
 RUN apt update && \
-    apt install -y python3-pip && \
+    apt install -y python3-pip openssh-client && \
     if [ ! -z "${SYSTEM_PACKAGES}" ]; then \
         for pkg in ${SYSTEM_PACKAGES}; do\
             apt install -y ros-${ROS2_DISTRO}-$pkg; \
@@ -112,10 +113,13 @@ COPY docker/mapped/ros2 /user_ws/src/
 ARG USER_ROS2_REPOS=""
 WORKDIR /user_ws/src
 RUN --mount=type=ssh \
+    mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts && \
     if [ ! -z "${USER_ROS2_REPOS}" ]; then\
         echo "${USER_ROS2_REPOS}" | tr ";" "\n" | while read -r repo; do \
-            [[ -z "$repo" ]] && continue; \
-            git clone $repo; \
+            if [ -n "$repo" ]; then \
+                echo "Cloning $repo"; \
+                eval "git clone $repo"; \
+            fi; \
         done;\
     fi
 
@@ -123,7 +127,7 @@ RUN --mount=type=ssh \
 WORKDIR /user_ws
 RUN rosdep update \
     && apt update \
-    && rosdep install --from-paths /user_ws/src -i -y \
+    && rosdep install --from-paths /user_ws/src -i -y -r \
     && rm -rf /var/lib/apt/lists*
 RUN source /opt/ros/${ROS2_DISTRO}/setup.bash && colcon build && echo "source /user_ws/install/setup.bash" >> ~/.profile
 
@@ -147,11 +151,12 @@ FROM ros:${ROS1_DISTRO}-ros-base AS ros1_base
 ARG ROS1_DISTRO
 
 SHELL ["/bin/bash", "-lc"]
+ARG DEBIAN_FRONTEND=noninteractive
 
 # Install system message types
 ARG SYSTEM_PACKAGES=""
 RUN apt update && \
-    apt install -y git python3-pip python3-catkin-tools && \
+    apt install -y git python3-pip python3-catkin-tools openssh-client && \
     if [ ! -z "${SYSTEM_PACKAGES}" ]; then \
         for pkg in ${SYSTEM_PACKAGES}; do\
             apt install -y ros-${ROS1_DISTRO}-$pkg; \
@@ -166,10 +171,13 @@ COPY docker/mapped/ros1 /user_ws/src/
 ARG USER_ROS1_REPOS=""
 WORKDIR /user_ws/src
 RUN --mount=type=ssh \
-    if [ ! -z "$USER_ROS1_REPOS" ]; then\
-        echo "$USER_ROS1_REPOS" | tr ";" "\n" | while read -r repo; do \
-            [[ -z "$repo" ]] && continue; \
-            git clone $repo; \
+    mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts && \
+    if [ ! -z "${USER_ROS1_REPOS}" ]; then\
+        echo "${USER_ROS1_REPOS}" | tr ";" "\n" | while read -r repo; do \
+            if [ -n "$repo" ]; then \
+                echo "Cloning $repo"; \
+                eval "git clone $repo"; \
+            fi; \
         done;\
     fi
 
@@ -177,7 +185,7 @@ RUN --mount=type=ssh \
 WORKDIR /user_ws
 RUN rosdep update \
     && apt update \
-    && rosdep install --from-paths /user_ws/src -i -y \
+    && rosdep install --from-paths /user_ws/src -i -y -r \
     && rm -rf /var/lib/apt/lists*
 RUN source /opt/ros/${ROS1_DISTRO}/setup.bash && catkin build && echo "if [ -f '/user_ws/devel/setup.bash' ]; then source /user_ws/devel/setup.bash; fi" >> ~/.profile
 
