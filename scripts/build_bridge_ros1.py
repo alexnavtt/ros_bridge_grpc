@@ -35,9 +35,11 @@ def are_types_equivalent(ros1_msg_type: str, ros2_msg_type: str) -> bool:
     
     return False
 
-def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str) -> bool:
-    if msg_package == 'std_msgs' and msg_name == 'Header':
-        return True
+def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str, msg_overrides: list = []) -> bool:
+    # If there are incompatibilities, then we have to delete the offending fields.
+    # In that case, they will be omitted from the bridge and always have default values
+    fields_to_delete = set()
+    is_overriden: bool = f'{msg_package}/{msg_name}' in msg_overrides
 
     try:
         with open(proto_filepath, 'r') as f:
@@ -107,20 +109,30 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
                 elif isinstance(proto_field, Field):
                     if proto_field.name not in ros_msg_class.__slots__:
                         print(f'Message type {msg_package}/{msg_name} has field {proto_field.name} in ROS2 but not in ROS1')
-                        return False
+                        if is_overriden:
+                            fields_to_delete.add(proto_field.name)
+                            continue
+                        else:
+                            return False
                     
                     corresponding_field_idx = ros_msg_class.__slots__.index(proto_field.name)
                     ros1_msg_type: str = ros_msg_class._slot_types[corresponding_field_idx]
                     ros2_msg_type: str = proto_field.type.replace('_proto.', '.').replace('.', '/')
 
+                    # We cannot reconcile (and therefore override) a cardinality mismatch
                     if ros1_msg_type.endswith(']'):
-                        if proto_field.cardinality != FieldCardinality.REPEATED:
+                        if proto_field.cardinality != FieldCardinality.REPEATED and proto_field.type != 'bytes':
                             print(f'{msg_package}/{ros1_msg_type}:{proto_field.name} is an array in ROS1 but not in ROS2')
+                            return False
                         ros1_msg_type = ros1_msg_type[:ros1_msg_type.find('[')]
 
                     if not are_types_equivalent(ros1_msg_type, ros2_msg_type):
                         print(f'Message type {msg_package}/{ros1_msg_type}:{proto_field.name} has type {ros2_msg_type} in ROS2 but type {ros1_msg_type} in ROS1')
-                        return False
+                        if is_overriden:
+                            fields_to_delete.add(proto_field.name)
+                            continue
+                        else:
+                            return False
                     
                     matched_fields.append(proto_field.name)
                     
@@ -131,15 +143,49 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
         for elem in ros_msg_class.__slots__:
             if elem not in matched_fields:
                 print(f'{msg_package}/{msg_name} has field {elem} in ROS1 but not in ROS2')
-                return False              
+                if is_overriden:
+                    fields_to_delete.add(elem)
+                else:
+                    return False
         
     except FileNotFoundError:
         print(f'File {proto_filepath} seems to not exist')
         return False
     except ModuleNotFoundError:
         print(f'Unable to import {msg_package}.msg')
-        return False        
+        return False
     
+    # If requested, reconcile incompatibilties now by deleting the lines with the offending fields
+    if is_overriden and len(fields_to_delete) > 0:
+        lines_to_keep = []
+        with open(proto_filepath, 'r') as file:
+            file_lines = file.readlines()
+
+        done = False
+        for line in file_lines:
+            # The message definition comes first, so we can stop after the first close-brace
+            if '}' in line:
+                done = True
+
+            if done:
+                lines_to_keep.append(line)
+                continue
+
+            # Skip lines that do not define fields
+            if not line.endswith(';'):
+                lines_to_keep.append(line)
+                continue
+
+            # Check if the line contains an incompatible field
+            field_name = line.strip().split(' ')[1]
+            if field_name in fields_to_delete:
+                continue
+
+            lines_to_keep.append(line)
+
+        with open(proto_filepath, 'w') as file:
+            file.writelines(lines_to_keep)
+
     return True
 
 def get_all_known_message_types() -> Dict[str, List[str]]:
@@ -161,6 +207,7 @@ def main():
         exit(1)
 
     message_lookup = get_all_known_message_types()
+    msg_overrides = os.getenv('COMPAT_OVERRIDES', '').split(' ')
 
     missed_packages = set()
     proto_path = sys.argv[1]
@@ -175,11 +222,9 @@ def main():
             os.remove(file_path)
             continue
 
-        if not check_msg_compatibility(msg_package, msg_typename, str(file_path)):
+        if not check_msg_compatibility(msg_package, msg_typename, str(file_path), msg_overrides):
             print(f'Message {msg_package}/{msg_typename} is not compatible between ROS1 and ROS2')
-            print(f'Deleting {file_path}')
-            os.remove(file_path)
-            continue
+            exit(1)
 
     print('Unable to find matching packages for:')
     for missed_packge in sorted(missed_packages):

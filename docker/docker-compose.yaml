@@ -14,6 +14,7 @@ services:
         USER_ROS2_REPOS: $ROS_BRIDGE_GRPC_USER_ROS2_REPOS
         ALLOWED_TYPES: $ROS_BRIDGE_GRPC_ALLOWED_TYPES
         MESSAGE_PACKAGES: $ROS_BRIDGE_GRPC_MESSAGE_PACKAGES
+        COMPAT_OVERRIDES: $ROS_BRIDGE_GRPC_COMPAT_OVERRIDES
     image: ros_bridge_grpc
     container_name: ros_bridge_grpc_container
     tty: true

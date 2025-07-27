@@ -186,10 +186,11 @@ RUN pip install proto-schema-parser
 
 # Verify generated proto files
 ARG ALLOWED_TYPES=""
+ARG COMPAT_OVERRIDES=""
 COPY scripts/build_bridge_ros1.py /scripts/build_bridge_ros1.py
 RUN source /opt/ros/${ROS1_DISTRO}/setup.bash \
     && source ~/.profile \
-    && python3 /scripts/build_bridge_ros1.py /generated
+    && COMPAT_OVERRIDES=${COMPAT_OVERRIDES} python3 /scripts/build_bridge_ros1.py /generated
 
 # -------------------------------------------------------------------------------------------------
 # ROS2 Generate Stage 2
