@@ -65,3 +65,13 @@ services:
       target: ros2_build
     entrypoint: /entrypoints/run_ros2_bridge.bash
     profiles: [runtime, all]
+
+  extract_generated:
+    extends: ros_bridge
+    container_name: ros1_bridge_extract_generated
+    build:
+      target: ros1_base
+    command: ["cp", "-r", "/generated/", "/export/generated/"]
+    volumes:
+      - ./generated:/export/generated
+    profiles: [all]
