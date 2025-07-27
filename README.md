@@ -12,6 +12,8 @@ we now have to perform an additional serialization/deserialization step since we
 
 However, with this performance hit we buy stability across new ROS distros and operating systems.
 
+**NOTE** Currently, ROS1 Bridge GRPC only bridges topics, not services or actions. The underlying architecture should work well for these use cases though, so it's likely that services and actions will be added in the future.
+
 ## How it works
 
 The code generation pipeline starts on the ROS2 side. All configured message types are installed and sourced in the ROS2 workspace. `ros1_bridge_grpc` then leverages the `rclpy` suite of code introspection functions to examine the message definitions and generate protobuf message and service definitions which match the ROS message type definition. Note that there are some limitations here, as the interfaces for ROS and gRPC are somewhat different, and so not all message features and field data types can be respected.
