@@ -3,6 +3,13 @@ ARG ROS2_DISTRO=humble
 ARG ROS2_UBUNTU=jammy
 
 # -------------------------------------------------------------------------------------------------
+# GRPC GIT
+# ------------------------------------------------------------------------------------------------- 
+    
+FROM alpine/git AS grpc_base
+RUN cd / && git clone --recurse-submodules -b v1.66.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc
+
+# -------------------------------------------------------------------------------------------------
 # GRPC ROS2
 # -------------------------------------------------------------------------------------------------
 
@@ -21,10 +28,10 @@ RUN apt update \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
+COPY --from=grpc_base /grpc /grpc
 RUN export MY_INSTALL_DIR=/install \
     && mkdir -p $MY_INSTALL_DIR \
-    && git clone --recurse-submodules -b v1.66.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc \
-    && cd grpc \
+    && cd /grpc \
     && mkdir -p cmake/build \
     && cd cmake/build \
     && cmake -DgRPC_INSTALL=ON \
@@ -54,10 +61,10 @@ RUN apt update \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
+COPY --from=grpc_base /grpc /grpc
 RUN export MY_INSTALL_DIR=/install \
     && mkdir -p $MY_INSTALL_DIR \
-    && git clone --recurse-submodules -b v1.66.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc \
-    && cd grpc \
+    && cd /grpc \
     && mkdir -p cmake/build \
     && cd cmake/build \
     && rm -rf * \
