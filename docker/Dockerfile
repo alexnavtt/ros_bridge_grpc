@@ -124,12 +124,17 @@ RUN --mount=type=ssh \
     fi
 
 # Build user packages
+ARG CUSTOM_PACKAGES=""
 WORKDIR /user_ws
-RUN rosdep update \
+RUN rosdep update --include-eol-distros \
     && apt update \
-    && rosdep install --from-paths /user_ws/src -i -y -r \
+    && source /opt/ros/${ROS2_DISTRO}/setup.bash && \
+    for pkg in ${CUSTOM_PACKAGES}; do \
+        pkg_path=$(colcon list | awk -v pkg_name="$pkg" '$1 == pkg_name {print $2}'); \
+        rosdep install --from-paths "$pkg_path" -i -y; \
+    done \
     && rm -rf /var/lib/apt/lists*
-RUN source /opt/ros/${ROS2_DISTRO}/setup.bash && colcon build && echo "source /user_ws/install/setup.bash" >> ~/.profile
+RUN source /opt/ros/${ROS2_DISTRO}/setup.bash && colcon build --packages-up-to ${CUSTOM_PACKAGES} && echo "source /user_ws/install/setup.bash" >> ~/.profile
 
 # Copy the generated protoc and gRPC libraries
 COPY --from=grpc_base_ros2 /install /install
@@ -164,6 +169,10 @@ RUN apt update && \
     fi && \
     rm -rf /var/lib/apt/lists/*
 
+# Create a catkin workspace
+WORKDIR /user_ws
+RUN mkdir -p src && source /opt/ros/${ROS1_DISTRO}/setup.bash && catkin build
+
 # Copy user packages into the image
 COPY docker/mapped/ros1 /user_ws/src/
     
@@ -182,12 +191,17 @@ RUN --mount=type=ssh \
     fi
 
 # Build user packages
+ARG CUSTOM_PACKAGES=""
 WORKDIR /user_ws
 RUN rosdep update \
     && apt update \
-    && rosdep install --from-paths /user_ws/src -i -y -r \
+    && source /opt/ros/${ROS1_DISTRO}/setup.bash && \
+    for pkg in ${CUSTOM_PACKAGES}; do \
+        pkg_path=$(catkin locate "$pkg"); \
+        rosdep install --from-paths "$pkg_path" -i -y; \
+    done \
     && rm -rf /var/lib/apt/lists*
-RUN source /opt/ros/${ROS1_DISTRO}/setup.bash && catkin build && echo "if [ -f '/user_ws/devel/setup.bash' ]; then source /user_ws/devel/setup.bash; fi" >> ~/.profile
+RUN source /opt/ros/${ROS1_DISTRO}/setup.bash && catkin build ${CUSTOM_PACKAGES} && echo "if [ -f '/user_ws/devel/setup.bash' ]; then source /user_ws/devel/setup.bash; fi" >> ~/.profile
 
 # Copy the generated protoc and gRPC libraries
 COPY --from=grpc_base_ros1 /install /install

@@ -34,6 +34,7 @@ def main(config_file: str):
 
     # Custom message types
     git_urls = {'ros1': '', 'ros2': ''}
+    output_dict['ROS_BRIDGE_GRPC_CUSTOM_PACKAGES'] = ""
     for custom_package in config_dict.get('custom_packages', list[dict[str, str]]()):
         for version in ['ros1', 'ros2']:
             if git_url := custom_package.get(f'{version}_url', None):
@@ -51,7 +52,9 @@ def main(config_file: str):
             else:
                 continue
 
+        output_dict['ROS_BRIDGE_GRPC_CUSTOM_PACKAGES'] += f' {custom_package["package_name"]}'
         output_dict['ROS_BRIDGE_GRPC_MESSAGE_PACKAGES'] += f' {custom_package["package_name"]}'
+        output_dict['ROS_BRIDGE_GRPC_ALLOWED_TYPES'] += f' {custom_package["package_name"]}/ALL'
 
     output_dict['ROS_BRIDGE_GRPC_USER_ROS1_REPOS'] = git_urls['ros1']
     output_dict['ROS_BRIDGE_GRPC_USER_ROS2_REPOS'] = git_urls['ros2']
