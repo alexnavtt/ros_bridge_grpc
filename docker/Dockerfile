@@ -159,6 +159,12 @@ ARG ROS1_DISTRO
 SHELL ["/bin/bash", "-lc"]
 ARG DEBIAN_FRONTEND=noninteractive
 
+# Fix ROS1 apt key issues
+RUN mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /etc/apt/keyrings/ros-archive-keyring.gpg \
+    && rm -f /etc/apt/sources.list.d/ros1-latest.list /etc/apt/sources.list.d/ros-latest.list \
+    && echo "deb [signed-by=/etc/apt/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list
+
 # Install system message types
 ARG SYSTEM_PACKAGES=""
 RUN apt update && \
