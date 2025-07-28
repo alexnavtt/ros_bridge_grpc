@@ -111,6 +111,7 @@ COPY docker/mapped/ros2 /user_ws/src/
     
 # Clone git-based user packages
 ARG USER_ROS2_REPOS=""
+ARG GIT_RECLONE=1
 WORKDIR /user_ws/src
 RUN --mount=type=ssh \
     mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts && \
@@ -178,6 +179,7 @@ COPY docker/mapped/ros1 /user_ws/src/
     
 # Clone git-based user packages
 ARG USER_ROS1_REPOS=""
+ARG GIT_RECLONE=1
 WORKDIR /user_ws/src
 RUN --mount=type=ssh \
     mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts && \
