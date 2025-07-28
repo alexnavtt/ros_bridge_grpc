@@ -26,6 +26,16 @@ compatible_types = {
     'char': ['uint32', 'int32']
 }
 
+class Logger:
+    def __init__(self, path: str):
+        if not os.path.exists(os.path.dirname(path)):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+        self.file = open(path, 'w')
+
+    def log_msg(self, msg: str):
+        self.file.write(f'{msg}\n')
+        print(msg)
+
 def are_types_equivalent(ros1_msg_type: str, ros2_msg_type: str) -> bool:
     if ros1_msg_type == ros2_msg_type:
         return True
@@ -35,7 +45,7 @@ def are_types_equivalent(ros1_msg_type: str, ros2_msg_type: str) -> bool:
     
     return False
 
-def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str, msg_overrides: list = []) -> bool:
+def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str, msg_overrides: list, logger: Logger) -> bool:
     # If there are incompatibilities, then we have to delete the offending fields.
     # In that case, they will be omitted from the bridge and always have default values
     fields_to_delete = set()
@@ -49,7 +59,7 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
             loaded_msg_packages[msg_package] = importlib.import_module(f'{msg_package}.msg')
 
         if not hasattr(loaded_msg_packages[msg_package], msg_name):
-            print(f'Package {msg_package} does not contain the message type {msg_name}')
+            logger.log_msg(f'Package {msg_package} does not contain the message type {msg_name}')
             return False
         ros_msg_class = getattr(loaded_msg_packages[msg_package], msg_name)
 
@@ -71,8 +81,11 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
                     name, value = text.split(' = ')
                     value = value[:-1] # remove semicolon
                     if not hasattr(ros_msg_class, name):
-                        print(f'{msg_package}/{msg_name} has constant {name} in ROS2 but not in ROS1')
-                        return False
+                        logger.log_msg(f'{msg_package}/{msg_name} has constant {name} in ROS2 but not in ROS1')
+                        if is_overriden:
+                            continue
+                        else:
+                            return False
 
                     # Make sure the constant value is the same in both definitions
                     ros1_constant_value = getattr(ros_msg_class, name)
@@ -102,13 +115,13 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
                         equivalent_constant = False
                         
                     if not equivalent_constant:
-                        print(f'{msg_package}/{msg_name} constant {name} has value {value} in ROS2 but value {ros1_constant_value} in ROS1')
+                        logger.log_msg(f'{msg_package}/{msg_name} constant {name} has value {value} in ROS2 but value {ros1_constant_value} in ROS1')
                         return False
 
                 # We check if each field has the same name, type, cardinality (optional, repeated, etc.), and size (if applicable)
                 elif isinstance(proto_field, Field):
                     if proto_field.name not in ros_msg_class.__slots__:
-                        print(f'Message type {msg_package}/{msg_name} has field {proto_field.name} in ROS2 but not in ROS1')
+                        logger.log_msg(f'Message type {msg_package}/{msg_name} has field {proto_field.name} in ROS2 but not in ROS1')
                         if is_overriden:
                             fields_to_delete.add(proto_field.name)
                             continue
@@ -122,12 +135,12 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
                     # We cannot reconcile (and therefore override) a cardinality mismatch
                     if ros1_msg_type.endswith(']'):
                         if proto_field.cardinality != FieldCardinality.REPEATED and proto_field.type != 'bytes':
-                            print(f'{msg_package}/{ros1_msg_type}:{proto_field.name} is an array in ROS1 but not in ROS2')
+                            logger.log_msg(f'{msg_package}/{ros1_msg_type}:{proto_field.name} is an array in ROS1 but not in ROS2')
                             return False
                         ros1_msg_type = ros1_msg_type[:ros1_msg_type.find('[')]
 
                     if not are_types_equivalent(ros1_msg_type, ros2_msg_type):
-                        print(f'Message type {msg_package}/{ros1_msg_type}:{proto_field.name} has type {ros2_msg_type} in ROS2 but type {ros1_msg_type} in ROS1')
+                        logger.log_msg(f'Message type {msg_package}/{ros1_msg_type}:{proto_field.name} has type {ros2_msg_type} in ROS2 but type {ros1_msg_type} in ROS1')
                         if is_overriden:
                             fields_to_delete.add(proto_field.name)
                             continue
@@ -137,26 +150,28 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
                     matched_fields.append(proto_field.name)
                     
                 else:
-                    print(f'Unexpected field type received: {type(proto_field)}')
+                    logger.log_msg(f'Unexpected field type received: {type(proto_field)}')
 
         # Check for values in ROS1 but not in ROS2
         for elem in ros_msg_class.__slots__:
             if elem not in matched_fields:
-                print(f'{msg_package}/{msg_name} has field {elem} in ROS1 but not in ROS2')
+                logger.log_msg(f'{msg_package}/{msg_name} has field {elem} in ROS1 but not in ROS2')
                 if is_overriden:
                     fields_to_delete.add(elem)
                 else:
                     return False
         
     except FileNotFoundError:
-        print(f'File {proto_filepath} seems to not exist')
+        logger.log_msg(f'File {proto_filepath} seems to not exist')
         return False
     except ModuleNotFoundError:
-        print(f'Unable to import {msg_package}.msg')
+        logger.log_msg(f'Unable to import {msg_package}.msg')
         return False
     
     # If requested, reconcile incompatibilties now by deleting the lines with the offending fields
     if is_overriden and len(fields_to_delete) > 0:
+        logger.log_msg(f'{msg_package}/{msg_name} comptibility overriden by ignoring fields:')
+        [logger.log_msg(f'\t{name}') for name in fields_to_delete]
         lines_to_keep = []
         with open(proto_filepath, 'r') as file:
             file_lines = file.readlines()
@@ -211,24 +226,28 @@ def main():
 
     missed_packages = set()
     proto_path = sys.argv[1]
+    logger = Logger(os.path.join(proto_path, 'log', 'ros1_bridge.txt'))
     for file_path in Path(proto_path).rglob('*.proto'):
         filename = os.path.basename(file_path)
         msg_package, msg_typename = os.path.splitext(filename)[0].split('.')
         
         if msg_package not in message_lookup or msg_typename not in message_lookup[msg_package]:
             missed_packages.add(msg_typename)
-            print(f'Cannot find matching type {msg_typename} in package {msg_package}')
-            print(f'Deleting {file_path}')
+            logger.log_msg(f'Cannot find matching type {msg_typename} in package {msg_package}')
+            logger.log_msg(f'Deleting {file_path}')
             os.remove(file_path)
             continue
 
-        if not check_msg_compatibility(msg_package, msg_typename, str(file_path), msg_overrides):
-            print(f'Message {msg_package}/{msg_typename} is not compatible between ROS1 and ROS2')
-            exit(1)
+        if not check_msg_compatibility(msg_package, msg_typename, str(file_path), msg_overrides, logger):
+            logger.log_msg(f'Message {msg_package}/{msg_typename} is not compatible between ROS1 and ROS2')
+            logger.log_msg(f'Deleting {file_path}')
+            os.remove(file_path)
+            continue
 
-    print('Unable to find matching packages for:')
-    for missed_packge in sorted(missed_packages):
-        print('\t', missed_packge)
+    if len(missed_packages) > 0:
+        logger.log_msg('Unable to find matching messages for:')
+        for missed_packge in sorted(missed_packages):
+            logger.log_msg('\t', missed_packge)
 
 if __name__ == "__main__":
     main()

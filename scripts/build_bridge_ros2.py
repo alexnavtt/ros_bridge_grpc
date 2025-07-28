@@ -25,6 +25,16 @@ imports_map = {
     'builtin_interfaces/Duration': 'google/protobuf/duration.proto',
 }
 
+class Logger:
+    def __init__(self, path: str):
+        if not os.path.exists(os.path.dirname(path)):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+        self.file = open(path, 'w')
+
+    def log_msg(self, msg: str):
+        self.file.write(f'{msg}\n')
+        print(msg)
+
 def resolve_type(field_type: str) -> str:
     ### Builtin types:
     if field_type in types_map:
@@ -79,11 +89,11 @@ def resolve_datatype(field_type: str) -> str:
     import_name = import_name[:-6]
     return import_name.replace('.', '/')
 
-def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str) -> None:
+def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str, logger: Logger) -> None:
     full_message_type = ros2interface.api.utilities.get_message(msg_package + '/' + msg_type)
 
     if 'wstring' in full_message_type._fields_and_field_types.values():
-        print(f'Cannot bridge {msg_package}/{msg_type} as wstring is not supported in ROS1')
+        logger.log_msg(f'Cannot bridge {msg_package}/{msg_type} as wstring is not supported in ROS1')
         return
 
     file_name = f'{msg_package}.{msg_type}.proto'
@@ -144,6 +154,7 @@ def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str) 
 
 def main(code_gen_path: str, allowed_types: list[str]):
     global message_dependencies
+    logger = Logger(os.path.join(code_gen_path, 'log', 'ros2_bridge.txt'))
 
     if not code_gen_path.startswith('/') and not code_gen_path.startswith('.'):
         code_gen_path = os.path.join('.', code_gen_path)
@@ -155,27 +166,36 @@ def main(code_gen_path: str, allowed_types: list[str]):
         if not os.path.exists(path):
             os.mkdir(path)
 
+    logger.log_msg(f'Path: {os.getenv("ROS_PACKAGE_PATH", "None")}')
+
+    built_packages = set()
     all_msgs = ros2interface.api.get_message_interfaces()
+    logger.log_msg('Detected message types:')
     for msg_package, msg_types in all_msgs.items():
         all_allowed: bool = f'{msg_package}/ALL' in allowed_types
+        logger.log_msg(f'{msg_package}:')
         for msg_type in msg_types:
+            logger.log_msg(f'\t{msg_type}')
             if not msg_type.startswith('msg/'):
-                print(f'Skipping unknown interface {msg_package}/{msg_type}')
+                logger.log_msg(f'Skipping unknown interface {msg_package}/{msg_type}')
                 continue
             
             trimmed_msg_type = msg_type[4:]
             if not all_allowed and f'{msg_package}/{trimmed_msg_type}' not in allowed_types:
                 continue 
-            ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path)
+            ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path, logger)
+            built_packages.add(msg_package)
 
-        print(f'{message_dependencies=}')
+        if msg_package not in built_packages:
+            continue
+
+        logger.log_msg(f'Message dependencies for built messages in {msg_package}: {message_dependencies}')
         while len(message_dependencies) > 0:
             tmp_message_dependencies = list(message_dependencies)
             message_dependencies = set[str]()
             for msg_type in tmp_message_dependencies:
-                print(f'{msg_type=}')
                 msg_package, trimmed_msg_type = msg_type.split('/')
-                ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path)
+                ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path, logger)
 
 
 if __name__ == '__main__':
