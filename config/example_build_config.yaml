@@ -2,15 +2,18 @@ ros1_distro: noetic
 ros2_distro: humble
 
 msg_packages:
-    std_msgs: [ALL]
+    std_msgs:
+        - String
 
     geometry_msgs:
-        - Point
-        - Pose
-        - PoseStamped
+        - [ALL]
 
     sensor_msgs:
         - PointCloud2
+
+    moveit_msgs:
+        - JointLimits
+        - SolidPrimitive
 
 custom_packages:
     - {package_name: my_package,
@@ -27,4 +30,6 @@ custom_packages:
        ros2_path: "/local/path/to/my/non_rosdep/ros2/interface/package/dependency"}
 
 compatibility_overrides:
-    - "std_msgs/Header"
+    - "std_msgs/Header"             # Has seq field in ROS1 but not in ROS2
+    - "shape_msgs/SolidPrimitive"   # Has new enum constants added in ROS2
+    - "moveit_msgs/JointLimits"     # Has jerk related fields in ROS2 but not ROS1
