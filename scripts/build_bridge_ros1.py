@@ -187,7 +187,7 @@ def check_msg_compatibility(msg_package: str, msg_name: str, proto_filepath: str
                 continue
 
             # Skip lines that do not define fields
-            if not line.endswith(';'):
+            if not line.strip().endswith(';'):
                 lines_to_keep.append(line)
                 continue
 
