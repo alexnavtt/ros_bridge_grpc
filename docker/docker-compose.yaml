@@ -45,7 +45,7 @@ services:
       target: ros1_build
     entrypoint: /entrypoints/run_ros1_bridge.bash
     profiles: [runtime, all]
-    
+
   ros2_bridge_introspection:
     extends: ros_bridge
     image: ros2_bridge:$ROS_BRIDGE_GRPC_ROS2_DISTRO
@@ -76,3 +76,80 @@ services:
     volumes:
       - ./generated:/export/generated
     profiles: [all]
+
+  # -------------------------------------------------------------------------------------------------
+  # Author: Daniel I. Meza
+  # Purpose: Provide interactive development shell for ROS1
+  # -------------------------------------------------------------------------------------------------
+  ros1_bridge_dev:
+    extends: ros1_bridge_introspection
+    container_name: ros1_bridge_dev
+    build:
+      target: ros1_bridge_dev
+    entrypoint: /bin/bash
+    # give access to the host's network
+    network_mode: host
+    ipc: host
+    pid: host
+    privileged: true
+    stdin_open: true    # allow bash interactive mode
+    tty: true     # keep the container running interactively
+    restart: no
+    security_opt:
+      # handle errors with RViz being denied dbus comm w/ host
+      - apparmor:unconfined
+    environment:
+      # pass the display variable to the container
+      - DISPLAY=${DISPLAY}
+      # disable QT-X11 memory sharing for RViz
+      - QT_X11_NO_MITSHM=1
+      # other environment variables...
+      - ROS_MASTER_URI
+      - ROS_HOSTNAME
+    volumes:
+      # mount the X11 socket to enable graphics display
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # bind the Xauthority file to use X11 forwarding
+      - ${XAUTHORITY}:/root/.Xauthority
+      # other volumes...
+      - ../misc:/catkin_ws/misc
+    profiles: [dev, all]
+
+  # -------------------------------------------------------------------------------------------------
+  # Author: Daniel I. Meza
+  # Purpose: Provide interactive development shell for ROS2
+  # -------------------------------------------------------------------------------------------------
+  ros2_bridge_dev:
+    extends: ros2_bridge_introspection
+    container_name: ros2_bridge_dev
+    build:
+      target: ros2_bridge_dev
+    entrypoint: /bin/bash
+    # give access to the host's network
+    network_mode: host
+    ipc: host
+    pid: host
+    privileged: true
+    stdin_open: true    # allow bash interactive mode
+    tty: true     # keep the container running interactively
+    restart: no
+    security_opt:
+      # handle errors with RViz being denied dbus comm w/ host
+      - apparmor:unconfined
+    environment:
+      # pass the display variable to the container
+      - DISPLAY=${DISPLAY}
+      # disable QT-X11 memory sharing for RViz
+      - QT_X11_NO_MITSHM=1
+      # other environment variables...
+      - ROS_DOMAIN_ID
+      - RMW_IMPLEMENTATION
+      - CYCLONEDDS_URI=/cyclonedds_uri.xml
+    volumes:
+      # mount the X11 socket to enable graphics display
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # bind the Xauthority file to use X11 forwarding
+      - ${XAUTHORITY}:/root/.Xauthority
+      # other volumes...
+      - ../misc:/colcon_ws/misc
+    profiles: [dev, all]

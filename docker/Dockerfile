@@ -298,3 +298,81 @@ RUN source /opt/ros/${ROS1_DISTRO}/setup.bash \
 
 COPY docker/entrypoints/run_ros1_bridge.bash /entrypoints/run_ros1_bridge.bash
 RUN chmod +x /entrypoints/run_ros1_bridge.bash
+
+# -------------------------------------------------------------------------------------------------
+# ROS2 Bridge Dev
+# Author: Daniel I. Meza
+# Description: Provide interactive development shell for ROS1
+# -------------------------------------------------------------------------------------------------
+
+FROM ros2_build AS ros2_bridge_dev
+
+WORKDIR /colcon_ws
+
+# Install core libraries
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt update \
+    && apt upgrade -y \
+    && apt install -y --no-install-recommends --no-install-suggests ros-dev-tools
+
+RUN apt install -y \
+    nano \
+    iputils-ping \
+    python3-colcon-common-extensions \
+    python3-rosdep
+
+RUN apt install -y \
+    ros-${ROS2_DISTRO}-rmw-cyclonedds-cpp \
+    ros-${ROS2_DISTRO}-tf2-tools \
+    ros-${ROS2_DISTRO}-rqt-graph \
+    ros-${ROS2_DISTRO}-rqt-tf-tree \
+    ros-${ROS2_DISTRO}-rviz2
+
+RUN apt clean -y
+
+# Terminal colors and .bashrc
+RUN sed -i 's/#force_color_prompt=yes/force_color_prompt=yes/' "/root/.bashrc" \
+    && sed -i 's/01;32m/01;36m/g; s/01;34m/01;35m/g' "/root/.bashrc" \
+    && echo "source /opt/ros/${ROS2_DISTRO}/setup.bash" >> /root/.bashrc
+
+# ROS logging format
+ENV ROSCONSOLE_FORMAT '[${severity}] [${node} -> ${function}]: ${message}'
+
+# -------------------------------------------------------------------------------------------------
+# ROS1 Bridge Dev
+# Author: Daniel I. Meza
+# Description: Provide interactive development shell for ROS1
+# -------------------------------------------------------------------------------------------------
+
+FROM ros1_build AS ros1_bridge_dev
+
+WORKDIR /catkin_ws
+
+# Install core libraries
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt update \
+    && apt upgrade -y \
+    && apt install -y --no-install-recommends --no-install-suggests ros-dev-tools
+
+RUN apt install -y \
+    nano \
+    iputils-ping \
+    python3-rosdep
+
+RUN apt install -y \
+    ros-${ROS1_DISTRO}-tf2-tools \
+    ros-${ROS1_DISTRO}-rqt-graph \
+    ros-${ROS1_DISTRO}-rqt-tf-tree \
+    ros-${ROS1_DISTRO}-rviz
+
+RUN apt clean -y
+
+# Terminal colors and .bashrc
+RUN sed -i 's/#force_color_prompt=yes/force_color_prompt=yes/' "/root/.bashrc" \
+    && sed -i 's/01;32m/01;36m/g; s/01;34m/01;35m/g' "/root/.bashrc" \
+    && echo "source /opt/ros/${ROS1_DISTRO}/setup.bash" >> /root/.bashrc
+
+# ROS logging format
+ENV ROSCONSOLE_FORMAT '[${severity}] [${node} -> ${function}]: ${message}'
