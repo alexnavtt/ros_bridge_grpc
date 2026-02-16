@@ -1,3 +1,6 @@
 generated/
 config
 mapped
+
+# Local Files
+**/misc

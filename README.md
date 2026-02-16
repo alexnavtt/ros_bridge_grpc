@@ -128,6 +128,27 @@ Note that the following runtime settings for ROS1 and ROS2 are read directly fro
 
 And that's it! You should be good to go to pass messages seamlessly between ROS1 and ROS2.
 
+## Running ROS1/ROS2 Development Environments
+
+Quickly launch interactive shell environments for ROS1 and ROS2 (useful for rosbag playback, RViz, testing, and development). The services are defined in `docker-compose.yaml` as `ros1_bridge_dev` and `ros2_bridge_dev`.
+
+On a new terminal, export the same build/runtime environment variables from before. Then:
+
+```bash
+# Start dev shells (detached)
+docker compose --profile dev up -d ros1_bridge_dev ros2_bridge_dev
+
+# Attach to ROS1 dev shell
+docker exec -it ros1_bridge_dev bash
+
+# Attach to ROS2 dev shell
+docker exec -it ros2_bridge_dev bash
+
+# Stop and remove the dev containers
+docker compose --profile dev rm -sf ros1_bridge_dev ros2_bridge_dev
+```
+
+
 ## Advanced Use Cases
 
 ROS1 Bridge GRPC was conceptualized as a joint program intended to run on a single machine to bridge ROS1 and ROS2 communications. However, the resulting framework is quite versatile, and allows for some interesting possibilities:
