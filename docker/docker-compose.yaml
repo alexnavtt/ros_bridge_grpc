@@ -104,8 +104,6 @@ services:
       # disable QT-X11 memory sharing for RViz
       - QT_X11_NO_MITSHM=1
       # other environment variables...
-      - ROS_MASTER_URI
-      - ROS_HOSTNAME
     volumes:
       # mount the X11 socket to enable graphics display
       - /tmp/.X11-unix:/tmp/.X11-unix
@@ -141,10 +139,6 @@ services:
       - DISPLAY=${DISPLAY}
       # disable QT-X11 memory sharing for RViz
       - QT_X11_NO_MITSHM=1
-      # other environment variables...
-      - ROS_DOMAIN_ID
-      - RMW_IMPLEMENTATION
-      - CYCLONEDDS_URI=/cyclonedds_uri.xml
     volumes:
       # mount the X11 socket to enable graphics display
       - /tmp/.X11-unix:/tmp/.X11-unix
