@@ -136,16 +136,16 @@ On a new terminal, export the same build/runtime environment variables from befo
 
 ```bash
 # Start dev shells (detached)
-docker compose --profile dev up -d ros1_bridge_dev ros2_bridge_dev
-
-# Attach to ROS1 dev shell
-docker exec -it ros1_bridge_dev bash
-
-# Attach to ROS2 dev shell
-docker exec -it ros2_bridge_dev bash
+docker compose run --rm ros1_bridge_dev # or ros2_bridge_dev
 
 # Stop and remove the dev containers
-docker compose --profile dev rm -sf ros1_bridge_dev ros2_bridge_dev
+docker compose --profile dev down
+```
+
+Once the container is running, attach to it with:
+```bash
+# Attach to ROS dev shell
+docker exec -it ros1_bridge_dev bash  # or ros2_bridge_dev
 ```
 
 

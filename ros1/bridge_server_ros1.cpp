@@ -56,7 +56,6 @@ public:
 
         // Create a gRPC channel to allow all types to register their subscription callbacks with
         ROS_INFO("Creating gRPC client on %s", ros2_server_address.c_str());
-        // std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(ros2_server_address, grpc::InsecureChannelCredentials());
         std::shared_ptr<grpc::Channel> channel = grpc::CreateCustomChannel(ros2_server_address, grpc::InsecureChannelCredentials(), ch_args);
 
         // For each of them, register the corresponding communication elements

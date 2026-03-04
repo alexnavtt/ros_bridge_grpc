@@ -77,24 +77,12 @@ services:
       - ./generated:/export/generated
     profiles: [all]
 
-  # -------------------------------------------------------------------------------------------------
-  # Author: Daniel I. Meza
-  # Purpose: Provide interactive development shell for ROS1
-  # -------------------------------------------------------------------------------------------------
   ros1_bridge_dev:
     extends: ros1_bridge_introspection
     container_name: ros1_bridge_dev
     build:
       target: ros1_bridge_dev
     entrypoint: /bin/bash
-    # give access to the host's network
-    network_mode: host
-    ipc: host
-    pid: host
-    privileged: true
-    stdin_open: true    # allow bash interactive mode
-    tty: true     # keep the container running interactively
-    restart: no
     security_opt:
       # handle errors with RViz being denied dbus comm w/ host
       - apparmor:unconfined
@@ -110,27 +98,15 @@ services:
       # bind the Xauthority file to use X11 forwarding
       - ${XAUTHORITY}:/root/.Xauthority
       # other volumes...
-      - ../misc:/catkin_ws/misc
+      # - ../misc:/catkin_ws/misc       # optional local directory to mount files
     profiles: [dev, all]
 
-  # -------------------------------------------------------------------------------------------------
-  # Author: Daniel I. Meza
-  # Purpose: Provide interactive development shell for ROS2
-  # -------------------------------------------------------------------------------------------------
   ros2_bridge_dev:
     extends: ros2_bridge_introspection
     container_name: ros2_bridge_dev
     build:
       target: ros2_bridge_dev
     entrypoint: /bin/bash
-    # give access to the host's network
-    network_mode: host
-    ipc: host
-    pid: host
-    privileged: true
-    stdin_open: true    # allow bash interactive mode
-    tty: true     # keep the container running interactively
-    restart: no
     security_opt:
       # handle errors with RViz being denied dbus comm w/ host
       - apparmor:unconfined
@@ -145,5 +121,5 @@ services:
       # bind the Xauthority file to use X11 forwarding
       - ${XAUTHORITY}:/root/.Xauthority
       # other volumes...
-      - ../misc:/colcon_ws/misc
+      # - ../misc:/catkin_ws/misc       # optional local directory to mount files
     profiles: [dev, all]
