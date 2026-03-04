@@ -308,7 +308,7 @@ FROM ros2_build AS ros2_bridge_dev
 WORKDIR /colcon_ws
 
 # Install core libraries
-ENV DEBIAN_FRONTEND=noninteractive
+ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt update \
     && apt upgrade -y \
@@ -341,7 +341,7 @@ FROM ros1_build AS ros1_bridge_dev
 WORKDIR /catkin_ws
 
 # Install core libraries
-ENV DEBIAN_FRONTEND=noninteractive
+ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt update \
     && apt upgrade -y \
