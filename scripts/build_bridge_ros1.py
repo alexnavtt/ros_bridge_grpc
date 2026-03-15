@@ -246,8 +246,8 @@ def main():
 
     if len(missed_packages) > 0:
         logger.log_msg('Unable to find matching messages for:')
-        for missed_packge in sorted(missed_packages):
-            logger.log_msg('\t', missed_packge)
+        for missed_package in sorted(missed_packages):
+            logger.log_msg(f'\t{missed_package}')
 
 if __name__ == "__main__":
     main()
