@@ -94,7 +94,7 @@ services:
       # other environment variables...
     volumes:
       # bind the Xauthority file to use X11 forwarding
-      - ${XAUTHORITY:-/dev/null}
+      - ${XAUTHORITY:-/dev/null}:/root/.Xauthority
       # other volumes...
       # - ../misc:/catkin_ws/misc       # optional local directory to mount files
     profiles: [dev, all]
@@ -115,7 +115,7 @@ services:
       - QT_X11_NO_MITSHM=1
     volumes:
       # bind the Xauthority file to use X11 forwarding
-      - ${XAUTHORITY:-/dev/null}
+      - ${XAUTHORITY:-/dev/null}:/root/.Xauthority
       # other volumes...
       # - ../misc:/catkin_ws/misc       # optional local directory to mount files
     profiles: [dev, all]
