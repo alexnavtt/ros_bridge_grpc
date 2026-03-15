@@ -47,9 +47,16 @@ public:
         grpc::ServerBuilder builder;
         builder.AddListeningPort(ros1_server_address, grpc::InsecureServerCredentials());
 
+        // Allow larger message size 8MB (default is 4MB)
+        builder.SetMaxReceiveMessageSize(8 * 1024 * 1024);
+        builder.SetMaxSendMessageSize(8 * 1024 * 1024);
+        grpc::ChannelArguments ch_args;
+        ch_args.SetMaxReceiveMessageSize(8 * 1024 * 1024);
+        ch_args.SetMaxSendMessageSize(8 * 1024 * 1024);
+
         // Create a gRPC channel to allow all types to register their subscription callbacks with
         ROS_INFO("Creating gRPC client on %s", ros2_server_address.c_str());
-        std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(ros2_server_address, grpc::InsecureChannelCredentials());
+        std::shared_ptr<grpc::Channel> channel = grpc::CreateCustomChannel(ros2_server_address, grpc::InsecureChannelCredentials(), ch_args);
 
         // For each of them, register the corresponding communication elements
         std::string type;

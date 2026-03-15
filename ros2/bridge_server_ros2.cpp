@@ -61,10 +61,18 @@ public:
         RCLCPP_INFO(get_logger(), "Creating gRPC server on %s", ros2_server_address.c_str());
         grpc::ServerBuilder builder;
         builder.AddListeningPort(ros2_server_address, grpc::InsecureServerCredentials());
+        
+        // Allow larger message size 8MB (default is 4MB)
+        builder.SetMaxReceiveMessageSize(8 * 1024 * 1024);
+        builder.SetMaxSendMessageSize(8 * 1024 * 1024);
+
+        grpc::ChannelArguments ch_args;
+        ch_args.SetMaxReceiveMessageSize(8 * 1024 * 1024);
+        ch_args.SetMaxSendMessageSize(8 * 1024 * 1024);
 
         // Create a gRPC channel to allow all types to register their subscription callbacks with
         RCLCPP_INFO(get_logger(), "Creating gRPC client on %s", ros1_server_address.c_str());
-        std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(ros1_server_address, grpc::InsecureChannelCredentials());
+        std::shared_ptr<grpc::Channel> channel = grpc::CreateCustomChannel(ros1_server_address, grpc::InsecureChannelCredentials(), ch_args);
 
         // For each of them, register the corresponding communication elements
         rcl_interfaces::msg::ParameterDescriptor topic_type_param;

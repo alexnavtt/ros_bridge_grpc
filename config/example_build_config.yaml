@@ -5,6 +5,8 @@ msg_packages:
     std_msgs:
         - String
 
+    tf2_msgs: [ALL]
+
     geometry_msgs:
         - [ALL]
 
