@@ -5,10 +5,11 @@ msg_packages:
     std_msgs:
         - String
 
-    tf2_msgs: [ALL]
+    tf2_msgs: 
+        - ALL
 
     geometry_msgs:
-        - [ALL]
+        - ALL
 
     sensor_msgs:
         - PointCloud2
