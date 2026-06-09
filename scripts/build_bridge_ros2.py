@@ -1,6 +1,5 @@
 import os
 import sys
-import subprocess
 import ros2interface.api
 
 generated_files = []
@@ -36,6 +35,16 @@ class Logger:
         print(msg)
 
 def resolve_type(field_type: str) -> str:
+    """
+    Convert a ros2interface API field type to a valid proto type
+    Eg:
+     - int16                       => int32
+     - int8[]                      => bytes
+     - geometry_msgs/Twist[]       => repeated geometry_msgs_proto.Twist
+     - sequence<std_msgs/String,5> => repeated std_msgs_proto.String
+     - builtin_interfaces/Duration => google.protobuf.Duration
+    """
+
     ### Builtin types:
     if field_type in types_map:
         return types_map[field_type]
@@ -69,7 +78,16 @@ def resolve_type(field_type: str) -> str:
             field_type = field_type.replace(package_name, f'{package_name}_proto')
         return field_type.replace('/', '.')
     
-def resolve_import(field_type: str) -> str:   
+def resolve_import(field_type: str) -> str:
+    """
+    Converts ROS2 field types to proto types.
+    Eg:
+     - std_msgs/String[]             => std_msgs.String.proto
+     - geometry_msgs/Vector3         => geometry_msgs.Vector3.proto
+     - sequence<sensor_msgs/Image,4> => sensor_msgs.Image.proto
+     - builtin_interfaces/Time       => google/protobuf/timestamp.proto
+    """
+
     if field_type.endswith(']'):
         field_type = field_type[:field_type.find('[')]
 
@@ -81,13 +99,55 @@ def resolve_import(field_type: str) -> str:
     if field_type in imports_map:
         return imports_map[field_type]
 
-    return field_type.replace('/', '.') + '.proto'
+    return field_type
 
-def resolve_datatype(field_type: str) -> str:
-    import_name = resolve_import(field_type)
-    # Remove the .proto extension
-    import_name = import_name[:-6]
-    return import_name.replace('.', '/')
+def resolve_all_imports(msg_interfaces: list) -> str:
+    """
+    Loops through provided interfaces and adds import lines for all dependencies
+    
+    Example Output:
+        import "geometry_msgs.Vector3.proto";
+        import "geometry_msgs.Point.proto";
+        import "google/protobuf/timestamp.proto";
+    """
+
+    string = ""
+    
+    imported_names = set()
+    for msg_interface in msg_interfaces:
+        for field_name, field_type in msg_interface._fields_and_field_types.items():
+            if '/' in field_type:
+                imported_type_name = resolve_import(field_type).replace('/', '.msg.') + '.proto'
+                if imported_type_name not in imported_names:
+                    imported_names.add(imported_type_name)
+                    string += f'import "{imported_type_name}";\n'
+                if field_type not in types_map.keys():
+                    message_dependencies.add(resolve_import(field_type))
+
+    return string
+
+def get_message_proto_string(msg_interface):
+    string = ""
+
+    # Resolve the actual message definition
+    string += f'message {msg_interface.__name__} {"{"}\n'
+
+    # Resolve any constants in the message as an enum
+    constants = msg_interface.__class__.__prepare__('', '')
+    constants = {key: val for (key, val) in constants.items() if not key.endswith('__DEFAULT')}
+    if len(constants):
+        string += '\t// Constants \n'
+        for idx, (enum_name, enum_val) in enumerate(constants.items()):
+            string += (f'\t// {enum_name} = {enum_val};\n')
+        string += '\n'
+
+    idx = 1
+    for field_name, field_type in msg_interface._fields_and_field_types.items():
+        string += f'\t{resolve_type(field_type)} {field_name} = {idx};\n'
+        idx += 1
+    string += '}\n'
+
+    return string
 
 def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str, logger: Logger) -> None:
     full_message_type = ros2interface.api.utilities.get_message(msg_package + '/' + msg_type)
@@ -96,7 +156,7 @@ def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str, 
         logger.log_msg(f'Cannot bridge {msg_package}/{msg_type} as wstring is not supported in ROS1')
         return
 
-    file_name = f'{msg_package}.{msg_type}.proto'
+    file_name = f'{msg_package}.msg.{msg_type}.proto'
     file_path = os.path.join(proto_path, file_name)
 
     if file_name in generated_files:
@@ -108,48 +168,56 @@ def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str, 
         f.write(f'package {msg_package}_proto;\n')
         f.write(f'import "google/protobuf/empty.proto";\n')
 
-        # Resolve the imports
-        field_name: str
-        imported_names = set()
-        for field_name, field_type in full_message_type._fields_and_field_types.items():
-            if '/' in field_type:
-                imported_type_name = resolve_import(field_type)
-                if imported_type_name not in imported_names:
-                    imported_names.add(imported_type_name)
-                    f.write(f'import "{imported_type_name}";\n')
-                if field_type not in types_map.keys():
-                    message_dependencies.add(resolve_datatype(field_type))
-
-        # Resolve the actual message definition
-        f.write(f'message {msg_type} {"{"}\n')
-
-        # Resolve any constants in the message as an enum
-        constants = full_message_type.__class__.__prepare__('', '')
-        constants = {key: val for (key, val) in constants.items() if not key.endswith('__DEFAULT')}
-        if len(constants):
-            f.write('\t// Constants \n')
-            for idx, (enum_name, enum_val) in enumerate(constants.items()):
-                f.write(f'\t// {enum_name} = {enum_val};\n')
-            f.write('\n')
-
-        idx = 1
-        for field_name, field_type in full_message_type._fields_and_field_types.items():
-            f.write(f'\t{resolve_type(field_type)} {field_name} = {idx};\n')
-            idx += 1
-        f.write('}\n')
+        f.write(resolve_all_imports([full_message_type]))
+        f.write(get_message_proto_string(full_message_type))
 
         # Add in the gRPC interface
         f.write(
             f'message {msg_type}Packet {"{"}\n'
             f'    string topic = 1;\n'
             f'    {msg_type} message = 2;\n'
-             '}\n'
+            '}\n'
+            f'service Send{msg_type}MsgROS {"{"}\n'
+            f'    rpc SendROSMessage ({msg_type}Packet) returns (google.protobuf.Empty) {"{}"}\n'
+            '}\n'
         )
 
+def ros2_service_to_proto_srv(msg_package: str, srv_type: str, proto_path: str, logger: Logger) -> None:
+    full_service_type = ros2interface.api.utilities.get_service(msg_package + '/' + srv_type)
+
+    if 'wstring' in full_service_type.Request._fields_and_field_types.values() or \
+       'wstring' in full_service_type.Response._fields_and_field_types.values():
+        logger.log_msg(f'Cannot bridge {msg_package}/srv/{srv_type} as wstring is not supported in ROS1')
+        return
+    
+    file_name = f'{msg_package}.srv.{srv_type}.proto'
+    file_path = os.path.join(proto_path, file_name)
+
+    if file_name in generated_files:
+        return
+    
+    generated_files.append(file_name)
+    with open(file_path, 'w') as f:
+        f.write('syntax = "proto3";\n')
+        f.write(f'package {msg_package}_proto;\n')
+
+        f.write(resolve_all_imports([full_service_type.Request, full_service_type.Response]))
+        f.write(get_message_proto_string(full_service_type.Request))
+        f.write(get_message_proto_string(full_service_type.Response))
+
+        # Add in the gRPC interface
         f.write(
-            f'service Send{msg_type}ROS {"{"}\n'
-            f'    rpc SendROSMessage ({msg_type}Packet) returns (google.protobuf.Empty) {"{}"}\n'
-            f'{"}"}\n'
+            f'message {srv_type}RequestPacket {"{"}\n'
+            f'    string service = 1;\n'
+            f'    {srv_type}_Request request = 2;\n'
+            '}\n'
+            f'message {srv_type}ResponsePacket {"{"}\n'
+            f'    string service = 1;\n'
+            f'    {srv_type}_Response response = 2;\n'
+            '}\n'
+            f'service Send{srv_type}SrvROS {"{"}\n'
+            f'    rpc CallROSService ({srv_type}RequestPacket) returns ({srv_type}ResponsePacket) {"{}"}\n'
+            '}\n'
         )
 
 def main(code_gen_path: str, allowed_types: list[str]):
@@ -167,23 +235,42 @@ def main(code_gen_path: str, allowed_types: list[str]):
             os.mkdir(path)
 
     logger.log_msg(f'Path: {os.getenv("ROS_PACKAGE_PATH", "None")}')
+    logger.log_msg(f'Allowed types: {allowed_types}')
 
     built_packages = set()
-    all_msgs = ros2interface.api.get_message_interfaces()
-    logger.log_msg('Detected message types:')
-    for msg_package, msg_types in all_msgs.items():
-        all_allowed: bool = f'{msg_package}/ALL' in allowed_types
+    logger.log_msg('\nMESSAGES:')
+    for msg_package, msg_types in ros2interface.api.get_message_interfaces().items():
+        all_allowed: bool = f'{msg_package}/msg/ALL' in allowed_types
         logger.log_msg(f'{msg_package}:')
         for msg_type in msg_types:
-            logger.log_msg(f'\t{msg_type}')
-            if not msg_type.startswith('msg/'):
-                logger.log_msg(f'Skipping unknown interface {msg_package}/{msg_type}')
-                continue
-            
-            trimmed_msg_type = msg_type[4:]
-            if not all_allowed and f'{msg_package}/{trimmed_msg_type}' not in allowed_types:
+            logger.log_msg(f'\t{msg_type}')            
+            if not all_allowed and f'{msg_package}/{msg_type}' not in allowed_types:
                 continue 
+            trimmed_msg_type = msg_type[4:]
             ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path, logger)
+            built_packages.add(msg_package)
+
+        if msg_package not in built_packages:
+            continue
+
+        logger.log_msg(f'Message dependencies for built messages in {msg_package}: {message_dependencies}')
+        while len(message_dependencies) > 0:
+            tmp_message_dependencies = list(message_dependencies)
+            message_dependencies = set[str]()
+            for msg_type in tmp_message_dependencies:
+                msg_package, trimmed_msg_type = msg_type.split('/')
+                ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path, logger)
+
+    logger.log_msg('\nSERVICES:')
+    for msg_package, srv_types in ros2interface.api.get_service_interfaces().items():
+        all_allowed: bool = f'{msg_package}/srv/ALL' in allowed_types
+        logger.log_msg(f'{msg_package}:')
+        for srv_type in srv_types:
+            logger.log_msg(f'\t{srv_type}')            
+            if not all_allowed and f'{msg_package}/{srv_type}' not in allowed_types:
+                continue 
+            trimmed_srv_type = srv_type[4:]
+            ros2_service_to_proto_srv(msg_package, trimmed_srv_type, proto_path, logger)
             built_packages.add(msg_package)
 
         if msg_package not in built_packages:
