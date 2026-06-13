@@ -6,7 +6,7 @@
 #include "builtin_interfaces/msg/time.hpp" 
 #include "builtin_interfaces/msg/duration.hpp"
 #include "std_msgs/msg/header.hpp"
-#include "std_msgs.Header.pb.h"
+#include "std_msgs.msg.Header.pb.h"
 #define ROS_TIME builtin_interfaces::msg::Time
 #define ROS_DURATION builtin_interfaces::msg::Duration
 #define NANOSECONDS nanosec

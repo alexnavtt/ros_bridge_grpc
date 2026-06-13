@@ -82,9 +82,9 @@ def add_subscription_generator_callback(file_metadata: FileMetadata, dest_path: 
         f.write(
             f'template<>\n'
             f'std::shared_ptr<SUBSCRIBER_BASE> registerSubscription<{ros_type}>(const std::string& topic, NODE nh, std::shared_ptr<grpc::Channel> channel, [[maybe_unused]] bool transient_local, [[maybe_unused]] bool best_effort) {"{"}\n'
-            f'    static std::map<grpc::Channel*, std::unique_ptr<{msg_package}_proto::Send{msg_type}ROS::Stub>> stubs;\n'
+            f'    static std::map<grpc::Channel*, std::unique_ptr<{msg_package}_msg_proto::Send{msg_type}MsgROS::Stub>> stubs;\n'
             f'    if (!stubs.count(channel.get())) {"{"}\n'
-            f'        stubs[channel.get()] = std::move({msg_package}_proto::Send{msg_type}ROS::NewStub(channel));\n'
+            f'        stubs[channel.get()] = std::move({msg_package}_msg_proto::Send{msg_type}MsgROS::NewStub(channel));\n'
             f'    {"}"}\n'
             f'    \n'
             f'    auto& stub = stubs.at(channel.get());\n'
@@ -129,7 +129,7 @@ def add_publisher_generator_callback(file_metadata: FileMetadata, dest_path: str
         f.write(
             f'template<>\n'
             f'std::shared_ptr<grpc::Service> registerPublisher<{ros_type}>(const std::string& topic, NODE nh, grpc::ServerBuilder& server_builder, bool transient_local, bool best_effort) {"{"}\n'
-            f'    class SendROSMessageImpl final : public {msg_package}_proto::Send{msg_type}ROS::Service {"{"}\n'
+            f'    class SendROSMessageImpl final : public {msg_package}_msg_proto::Send{msg_type}MsgROS::Service {"{"}\n'
             f'    public:\n'
             f'        grpc::Status SendROSMessage (grpc::ServerContext* context, const {proto_type}Packet* message, google::protobuf::Empty* response) override {"{"}\n'
             f'            if (context->client_metadata().count("{mode}")) return grpc::Status::OK;\n'
