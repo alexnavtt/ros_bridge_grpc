@@ -129,12 +129,12 @@ def check_packet_compatibility(message_obj, proto_field: Field, fields_to_delete
     # We cannot reconcile (and therefore override) a cardinality mismatch
     if ros1_msg_type.endswith(']'):
         if proto_field.cardinality != FieldCardinality.REPEATED and proto_field.type != 'bytes':
-            logger.log_msg(f'{msg_package}/{ros1_msg_type}:{proto_field.name} is an array in ROS1 but not in ROS2')
+            logger.log_msg(f'{msg_package}/{proto_field.name} is an array in ROS1 but not in ROS2')
             return False
         ros1_msg_type = ros1_msg_type[:ros1_msg_type.find('[')]
 
     if not are_types_equivalent(ros1_msg_type, ros2_msg_type):
-        logger.log_msg(f'Message type {msg_package}/{ros1_msg_type}:{proto_field.name} has type {ros2_msg_type} in ROS2 but type {ros1_msg_type} in ROS1')
+        logger.log_msg(f'Message type {msg_package}/{proto_field.name} has type {ros2_msg_type} in ROS2 but type {ros1_msg_type} in ROS1')
         if override:
             fields_to_delete.add(proto_field.name)
             return True
@@ -153,8 +153,9 @@ def write_corrected_field(message_obj, message_lines: list, file_handle, fields_
     
     msg_package, msg_name = message_obj._type.split('/')
 
-    logger.log_msg(f'{msg_package}/{msg_name} comptibility overriden by ignoring fields:')
-    [logger.log_msg(f'\t{name}') for name in fields_to_delete]
+    if fields_to_delete:
+        logger.log_msg(f'{msg_package}/{msg_name} comptibility overriden by ignoring fields:')
+        [logger.log_msg(f'\t{name}') for name in fields_to_delete]
 
     lines_to_keep = []
     for line in message_lines:
@@ -172,10 +173,40 @@ def write_corrected_field(message_obj, message_lines: list, file_handle, fields_
 
     file_handle.writelines(lines_to_keep)
 
-def check_msg_compatibility(msg_package: str, msg_class: str, msg_name: str, proto_filepath: str, msg_overrides: list, logger: Logger) -> bool:
+def split_proto_text(lines: list) -> list:
+    """
+    Given a sequence of lines from a proto file, extract and separate out all sections
+    into individual lists of lines
+    """
+    field_started = False
+    header_lines = []
+    message_lines = []
+    service_lines = []
+
+    line: str
+    messages_started = False
+    for line in lines:
+        if line.startswith('message'):
+            field_started = True
+            messages_started = True
+            message_lines.append([])
+            message: list = message_lines[-1]
+
+        if not messages_started:
+            header_lines.append(line)
+        elif messages_started and not field_started:
+            service_lines.append(line)
+        elif field_started:
+            message.append(line)
+            if line.startswith('}'):
+                field_started = False
+                message = None
+
+    return header_lines, message_lines, service_lines
+
+def check_interface_compatibility(msg_package: str, msg_class: str, msg_name: str, proto_filepath: str, msg_overrides: list, logger: Logger) -> bool:
     # If there are incompatibilities, then we have to delete the offending fields.
     # In that case, they will be omitted from the bridge and always have default values
-    fields_to_delete = set()
     is_overriden: bool = f'{msg_package}/{msg_class}/{msg_name}' in msg_overrides
 
     # Read the proto file
@@ -188,15 +219,7 @@ def check_msg_compatibility(msg_package: str, msg_class: str, msg_name: str, pro
         return False
     
     # Extract the text of the message section of the proto file
-    field_started = False
-    message_lines = []
-    for line in file_text:
-        if line.startswith('message'):
-            field_started = True
-        if field_started:
-            message_lines.append(line)
-            if line.startswith('}'):
-                break
+    header, messages, service = split_proto_text(file_text)
     
     # Import the corresponding ROS message package
     if msg_package not in loaded_msg_packages:
@@ -214,55 +237,67 @@ def check_msg_compatibility(msg_package: str, msg_class: str, msg_name: str, pro
 
     # Extract the ROS message section of the proto message
     matched_fields = []
+    message_elements = []
     for element in proto_data.file_elements:
-        if isinstance(element, Message) and element.name != f'{msg_name}Packet':
-            message_element = element
-            break
+        if isinstance(element, Message):
+            message_elements.append(element)
+    
+    # Take only the ROS message definitions, not our packet definitions
+    if msg_class == 'msg':
+        message_elements = [message_elements[0]]
+    elif msg_class == 'srv':
+        message_elements = message_elements[0:2]
 
-    # Check each field in the proto message to ensure that it is compatible with a corresponding field in the ROS message
-    for proto_field in message_element.elements:
-        # Constant values are stored in the comments
-        if isinstance(proto_field, Comment):
-            if not check_constant_compatibility(ros_msg_class, proto_field, is_overriden, logger):
-                return False
+    # Rewrite the file, making any adjustments needed along the way
+    with open(proto_filepath, 'w') as f:
+        f.writelines(header)
 
-        # We check if each field has the same name, type, cardinality (optional, repeated, etc.), and size (if applicable)
-        elif isinstance(proto_field, Field):
-            if not check_packet_compatibility(ros_msg_class, proto_field, fields_to_delete, matched_fields, is_overriden, logger):
-                return False
-            
-        else:
-            logger.log_msg(f'Unexpected field type received: {type(proto_field)}')
-            return False
+        # Check each message field in the proto message to ensure that it is compatible with a corresponding field in the ROS message
+        for message_element, message_text in zip(message_elements, messages):
+            fields_to_delete = set()
 
-    # Check for values that exist in ROS1 but not in ROS2
-    for elem in ros_msg_class.__slots__:
-        if elem not in matched_fields:
-            logger.log_msg(f'{msg_package}/{msg_name} has field {elem} in ROS1 but not in ROS2')
-            if is_overriden:
-                fields_to_delete.add(elem)
-            else:
-                return False
-            
-    # If requested, reconcile incompatibilties now by deleting the lines with the offending fields
-    if is_overriden and len(fields_to_delete) > 0:
-        with open(proto_filepath, 'w') as f:
-            # Write everything up to the message
-            for line in file_text:
-                if line.startswith('message'):
-                    break
-                f.write(f'{line}')
+            if msg_class == 'srv' and message_element.name.endswith('Request'):
+                ros_msg_obj = ros_msg_class._request_class
+            elif msg_class == 'srv' and message_element.name.endswith('Response'):
+                ros_msg_obj = ros_msg_class._response_class
+            elif msg_class == 'msg':
+                ros_msg_obj = ros_msg_class
 
-            # Write the updated message
-            write_corrected_field(ros_msg_class, message_lines, f, fields_to_delete, logger)
-            
-            # Write the remaining lines
-            message_done = False
-            for line in file_text:
-                if message_done:
-                    f.write(f'{line}')
-                elif line.startswith('}'):
-                    message_done = True                 
+            for proto_field in message_element.elements:
+                # Constant values are stored in the comments
+                if isinstance(proto_field, Comment):
+                    if not check_constant_compatibility(ros_msg_obj, proto_field, is_overriden, logger):
+                        return False
+
+                # We check if each field has the same name, type, cardinality (optional, repeated, etc.), and size (if applicable)
+                elif isinstance(proto_field, Field):
+                    if not check_packet_compatibility(ros_msg_obj, proto_field, fields_to_delete, matched_fields, is_overriden, logger):
+                        return False
+                    
+                else:
+                    logger.log_msg(f'Unexpected field type received: {type(proto_field)}')
+                    return False
+
+            # Check for values that exist in ROS1 but not in ROS2
+            for elem in ros_msg_obj.__slots__:
+                if elem not in matched_fields and elem not in fields_to_delete:
+                    logger.log_msg(f'{msg_package}/{msg_name} has field {elem} in ROS1 but not in ROS2')
+                    if is_overriden:
+                        fields_to_delete.add(elem)
+                    else:
+                        return False
+                    
+            write_corrected_field(ros_msg_class, message_text, f, fields_to_delete, logger)
+
+        # Write the packet fields
+        if msg_class == 'msg':
+            f.writelines(messages[1])
+        elif msg_class == 'srv':
+            f.writelines(messages[2])
+            f.writelines(messages[3])
+        
+        # Write the service lines to close out the file
+        f.writelines(service)               
 
     return True
 
@@ -282,7 +317,7 @@ def get_all_known_message_types() -> Dict[str, List[str]]:
     service_lookup: dict[str, list[str]] = {}
     for package, _ in rossrv_packages:
         service_lookup[package] = []
-        for message_type in rosmsg.list_msgs(package, rospack):
+        for message_type in rosmsg.list_srvs(package, rospack):
             service_lookup[package].append(message_type[len(package)+1:])
 
     return message_lookup, service_lookup
@@ -318,7 +353,7 @@ def main():
             os.remove(file_path)
             continue
 
-        if not check_msg_compatibility(msg_package, msg_class, msg_typename, str(file_path), msg_overrides, logger):
+        if not check_interface_compatibility(msg_package, msg_class, msg_typename, str(file_path), msg_overrides, logger):
             logger.log_msg(f'Message {msg_package}/{msg_typename} is not compatible between ROS1 and ROS2')
             logger.log_msg(f'Deleting {file_path}')
             os.remove(file_path)
