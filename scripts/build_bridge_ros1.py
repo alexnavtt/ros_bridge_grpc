@@ -131,7 +131,7 @@ def check_packet_compatibility(message_obj, proto_field: Field, fields_to_delete
 
     corresponding_field_idx = message_obj.__slots__.index(proto_field.name)
     ros1_msg_type: str = message_obj._slot_types[corresponding_field_idx]
-    ros2_msg_type: str = proto_field.type.replace('_proto.', '.').replace('.', '/')
+    ros2_msg_type: str = proto_field.type.replace('_msg_proto.', '.').replace('.', '/')
 
     # We cannot reconcile (and therefore override) a cardinality mismatch
     if ros1_msg_type.endswith(']'):

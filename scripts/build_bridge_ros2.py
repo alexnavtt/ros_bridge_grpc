@@ -75,16 +75,16 @@ def resolve_type(field_type: str) -> str:
     else:
         if '/' in field_type:
             package_name = field_type[:field_type.find('/')]
-            field_type = field_type.replace(package_name, f'{package_name}_proto')
+            field_type = field_type.replace(package_name, f'{package_name}_msg_proto')
         return field_type.replace('/', '.')
     
 def resolve_import(field_type: str) -> str:
     """
     Converts ROS2 field types to proto types.
     Eg:
-     - std_msgs/String[]             => std_msgs.String.proto
-     - geometry_msgs/Vector3         => geometry_msgs.Vector3.proto
-     - sequence<sensor_msgs/Image,4> => sensor_msgs.Image.proto
+     - std_msgs/String[]             => std_msgs.msg.String.proto
+     - geometry_msgs/Vector3         => geometry_msgs.msg.Vector3.proto
+     - sequence<sensor_msgs/Image,4> => sensor_msgs.msg.Image.proto
      - builtin_interfaces/Time       => google/protobuf/timestamp.proto
     """
 
@@ -99,7 +99,7 @@ def resolve_import(field_type: str) -> str:
     if field_type in imports_map:
         return imports_map[field_type]
 
-    return field_type
+    return field_type.replace('/', '.msg.') + '.proto'
 
 def resolve_all_imports(msg_interfaces: list) -> str:
     """
@@ -117,7 +117,7 @@ def resolve_all_imports(msg_interfaces: list) -> str:
     for msg_interface in msg_interfaces:
         for field_name, field_type in msg_interface._fields_and_field_types.items():
             if '/' in field_type:
-                imported_type_name = resolve_import(field_type).replace('/', '.msg.') + '.proto'
+                imported_type_name = resolve_import(field_type)
                 if imported_type_name not in imported_names:
                     imported_names.add(imported_type_name)
                     string += f'import "{imported_type_name}";\n'
@@ -170,7 +170,7 @@ def ros2_message_to_proto_msg(msg_package: str, msg_type: str, proto_path: str, 
     generated_files.append(file_name)
     with open(file_path, 'w') as f:
         f.write('syntax = "proto3";\n')
-        f.write(f'package {msg_package}_proto;\n')
+        f.write(f'package {msg_package}_msg_proto;\n')
         f.write(f'import "google/protobuf/empty.proto";\n')
 
         f.write(resolve_all_imports([full_message_type]))
@@ -204,7 +204,7 @@ def ros2_service_to_proto_srv(msg_package: str, srv_type: str, proto_path: str, 
     generated_files.append(file_name)
     with open(file_path, 'w') as f:
         f.write('syntax = "proto3";\n')
-        f.write(f'package {msg_package}_proto;\n')
+        f.write(f'package {msg_package}_srv_proto;\n')
         f.write(f'import "google/protobuf/empty.proto";\n')
 
         f.write(resolve_all_imports([full_service_type.Request, full_service_type.Response]))
@@ -264,7 +264,7 @@ def main(code_gen_path: str, allowed_types: list[str]):
             tmp_message_dependencies = list(message_dependencies)
             message_dependencies = set[str]()
             for msg_type in tmp_message_dependencies:
-                msg_package, trimmed_msg_type = msg_type.split('/')
+                msg_package, _, trimmed_msg_type, _ = msg_type.split('.')
                 ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path, logger)
 
     logger.log_msg('\nSERVICES:')
