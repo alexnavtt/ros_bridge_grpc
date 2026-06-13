@@ -236,33 +236,26 @@ def generate_registration_functions(file_metadata: FileMetadata, dest_path: str)
     proto_type = file_metadata.proto_type
     ros_header = file_metadata.header
 
-    if msg_class == 'msg':
-        with open(os.path.join(dest_path, 'bridge_types.hpp'), 'a') as bridge_file:
+    with open(os.path.join(dest_path, 'bridge_types.hpp'), 'a') as bridge_file:
+        bridge_file.write(
+            f'#include <{msg_package}.{msg_class}.{msg_type}.pb.h>\n'
+            f'#include <{ros_header}>\n'
+        )
+
+        for proto_type, ros_type in zip(file_metadata.proto_type, file_metadata.ros_type):
             bridge_file.write(
-                f'#include <{msg_package}.{msg_class}.{msg_type}.pb.h>\n'
-                f'#include <{ros_header}>\n'
                 f'void grpc2ros(const {proto_type}&, {ros_type}&);\n'
                 f'void ros2grpc(const {ros_type}&, {proto_type}&);\n'
             )
 
-        with open(os.path.join(dest_path, 'register_types.hpp'), 'a') as register_file:
+    with open(os.path.join(dest_path, 'register_types.hpp'), 'a') as register_file:
+        if msg_class == 'msg':
             register_file.write(
                 f'BridgeServerROS{mode[-1]}::subscriber_registration_callbacks["{msg_package}/msg/{msg_type}"] = registerSubscription<{ros_type}>;\n'
                 f'BridgeServerROS{mode[-1]}::publisher_registration_callbacks["{msg_package}/msg/{msg_type}"] = registerPublisher<{ros_type}>;\n'
             )
 
-    elif msg_class == 'srv':
-        with open(os.path.join(dest_path, 'bridge_types.hpp'), 'a') as bridge_file:
-            bridge_file.write(
-                f'#include <{msg_package}.{msg_class}.{msg_type}.pb.h>\n'
-                f'#include <{ros_header}>\n'
-                f'void grpc2ros(const {proto_type}Request&, {ros_type}::Request&);\n'
-                f'void grpc2ros(const {proto_type}Response&, {ros_type}::Response&);\n'
-                f'void ros2grpc(const {ros_type}::Request&, {proto_type}Request&);\n'
-                f'void ros2grpc(const {ros_type}::Response&, {proto_type}Response&);\n'
-            )
-
-        with open(os.path.join(dest_path, 'register_types.hpp'), 'a') as register_file:
+        elif msg_class == 'srv':
             register_file.write(
                 f'BridgeServerROS{mode[-1]}::client_registration_callbacks["{msg_package}/srv/{msg_type}"] = registerClient<{ros_type}>;\n'
                 f'BridgeServerROS{mode[-1]}::server_registration_callbacks["{msg_package}/srv/{msg_type}"] = registerServer<{ros_type}>;\n'
@@ -293,6 +286,7 @@ def main():
         for file_path in Path(proto_path).rglob('*.proto'):
             file_metadata = FileMetadata(file_path, mode)
             generate_cpp_conversion_code(file_metadata, dest_path)
+            generate_registration_functions(file_metadata, dest_path)
 
 if __name__ == '__main__':
     main()
