@@ -160,6 +160,112 @@ def add_publisher_generator_callback(file_metadata: FileMetadata, dest_path: str
             f'{"}"};\n\n'
         )
 
+def add_client_generator_callback(file_metadata: FileMetadata, dest_path: str) -> None:
+    ros_req_type, ros_resp_type = file_metadata.ros_type
+    msg_package = file_metadata.msg_package
+    msg_type = file_metadata.msg_type
+    mode = file_metadata.mode
+
+    ros_full_type = ros_req_type[0:ros_req_type.find('::Request')]
+
+    with open(os.path.join(dest_path, file_metadata.conversion_filename), 'a') as f:
+        f.write(
+            f'template<>\n'
+            f'std::shared_ptr<grpc::Service> registerServiceClient<{ros_full_type}>(const std::string& service_name, NODE nh, grpc::ServerBuilder& server_builder) {"{"}\n'
+            f'    class CallROSServiceImpl final : public {msg_package}_srv_proto::Send{msg_type}SrvROS::CallbackService {"{"}\n'
+            f'    public:\n'
+            f'        grpc::ServerUnaryReactor* CallROSService (grpc::CallbackServerContext* context, const {msg_package}_srv_proto::{msg_type}RequestPacket* request, {msg_package}_srv_proto::{msg_type}ResponsePacket *response) {"{"}\n'
+            f'            auto reactor = context->DefaultReactor();\n'
+            f'            if (context->client_metadata().count("ros2")) {"{"}\n'
+            f'                reactor->Finish(grpc::Status::OK);\n'
+            f'                return reactor;\n'
+            f'            {"}"}\n'
+            f'            if (clients_.count(request->service()) == 0) {"{"}\n'
+            f'                reactor->Finish(grpc::Status(grpc::StatusCode::NOT_FOUND, "Received service request on unregistered service" + request->service()));\n'
+            f'            {"}"}\n'
+            f'            auto ros_request = std::make_shared<{ros_req_type}>();\n'
+            f'            grpc2ros(request->request(), *ros_request);\n'
+            f'            \n'
+            f'            auto callback = [this, service_name = request->service(), response, reactor] (std::shared_future<std::shared_ptr<{ros_resp_type}>> future) {"{"}\n'
+            f'                try {"{"}\n'
+            f'                    response->set_service(service_name);\n'
+            f'                    ros2grpc(*future.get(), *response->mutable_response());\n'
+            f'                    reactor->Finish(grpc::Status::OK);\n'
+            f'                {"}"} catch (const std::exception& exception) {"{"}\n'
+            f'                    reactor->Finish(grpc::Status(grpc::StatusCode::INTERNAL, exception.what()));\n'
+            f'                {"}"}\n'
+            f'            {"};"}\n'
+            f'                \n'
+            f'            clients_.at(request->service())->async_send_request(ros_request, callback);\n'
+            f'            return reactor;\n'
+            f'        {"}"}\n'
+            f'                \n'
+            f'        void add_service(NODE node, std::string service_name) {"{"}\n'
+            f'            clients_[service_name] = CREATE_CLIENT_POINTER(node, {ros_full_type}, service_name);\n'
+            f'        {"}"}\n'
+            f'                \n'
+            f'    private:\n'
+            f'        std::unordered_map<std::string, std::shared_ptr<SERVICE_CLIENT({ros_full_type})>> clients_;\n'
+            f'    {"};"}\n\n'
+            f'    static std::shared_ptr<CallROSServiceImpl> service_impl;\n'
+            f'    if (!service_impl) {"{"}\n'
+            f'        service_impl = std::make_shared<CallROSServiceImpl>();\n'
+            f'        server_builder.RegisterService(service_impl.get());\n'
+            f'    {"}"}\n\n'
+            f'    service_impl->add_service(nh, service_name);\n'
+            f'    return std::static_pointer_cast<grpc::Service>(service_impl);\n'
+            f'{"}"}\n\n'
+        )
+
+def add_service_generator_callback(file_metadata: FileMetadata, dest_path: str) -> None:
+    ros_req_type, ros_resp_type = file_metadata.ros_type
+    msg_package = file_metadata.msg_package
+    msg_type = file_metadata.msg_type
+    pointer = file_metadata.pointer
+    mode = file_metadata.mode
+
+    ros_full_type = ros_req_type[0:ros_req_type.find('::Request')]
+
+    with open(os.path.join(dest_path, file_metadata.conversion_filename), 'a') as f:
+        f.write(
+            f'template<>\n'
+            f'std::shared_ptr<SERVICE_SERVER_BASE> registerServiceServer<{ros_full_type}>(const std::string& service_name, NODE nh, std::shared_ptr<grpc::Channel> channel) {"{"}\n'
+            f'    static std::map<grpc::Channel*, std::unique_ptr<{msg_package}_srv_proto::Send{msg_type}SrvROS::Stub>> stubs;\n'
+            f'    if (!stubs.count(channel.get())) {"{"}\n'
+            f'        stubs[channel.get()] = std::move({msg_package}_srv_proto::Send{msg_type}SrvROS::NewStub(channel));\n'
+            f'    {"}"}\n'
+            f'    auto& stub = stubs.at(channel.get());\n'
+            f'\n'
+            f'    auto server_holder = std::make_shared<rclcpp::Service<{ros_full_type}>::SharedPtr>();\n'
+            f'    auto request_received_callback = [&stub, &nh, server_holder, service_name](const std::shared_ptr<rmw_request_id_t> request_header, const {ros_req_type}::{pointer} ros_req) -> void {"{"}\n'
+            f'        auto request_packet = std::make_shared<{msg_package}_srv_proto::{msg_type}RequestPacket>();\n'
+            f'        auto response_packet = std::make_shared<{msg_package}_srv_proto::{msg_type}ResponsePacket>();\n'
+            f'        auto client_context = std::make_shared<grpc::ClientContext>();\n'
+            f'\n'
+            f'        request_packet->set_service(service_name);\n'
+            f'        client_context->AddMetadata("ros2", "");\n'
+            f'\n'
+            f'        ros2grpc(*ros_req, *request_packet->mutable_request());\n'
+            f'        auto response_received_callback = [&nh, request_packet, response_packet, service_name, server_holder, request_header, client_context](grpc::Status status) -> void {"{"}\n'
+            f'            (void) client_context;\n'
+            f'            if (!status.ok()) {"{"}\n'
+            f'                LOG_INFO(nh, "gRPC call failed sending service \'%s\' of type \'{ros_full_type}\' across the bridge", service_name.c_str());\n'
+            f'                return;\n'
+            f'            {"}"}\n'
+            f'            {ros_resp_type} ros_resp;\n'
+            f'            grpc2ros(response_packet->response(), ros_resp);\n'
+            f'            (*server_holder)->send_response(*request_header, ros_resp);\n'
+            f'        {"}"};\n'
+            f'\n'
+            f'        stub->async()->CallROSService(client_context.get(), request_packet.get(), response_packet.get(), response_received_callback);\n'
+            f'    {"}"};\n'
+            f'\n'
+            f'    auto server = CREATE_SERVER_POINTER(nh, {ros_full_type}, service_name, request_received_callback);\n'
+            f'    *server_holder = server;\n'
+            f'    return std::static_pointer_cast<SERVICE_SERVER_BASE>(server);\n'
+            f'{"}"}\n\n'
+        )
+
 def generate_cpp_conversion_code(file_metadata: FileMetadata, dest_path: str) -> None:
     msg_package = file_metadata.msg_package
     msg_class = file_metadata.msg_class
@@ -294,6 +400,10 @@ def main():
             if file_metadata.msg_class == 'msg':
                 add_publisher_generator_callback(file_metadata, dest_path)
                 add_subscription_generator_callback(file_metadata, dest_path)
+
+            elif file_metadata.msg_class == 'srv':
+                add_client_generator_callback(file_metadata, dest_path)
+                add_service_generator_callback(file_metadata, dest_path)
 
 if __name__ == '__main__':
     main()

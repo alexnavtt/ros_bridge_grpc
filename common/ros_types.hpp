@@ -21,6 +21,10 @@
 #define PUBLISHER_BASE rclcpp::PublisherBase
 #define SUBSCRIBER(type) rclcpp::Subscription<type>
 #define SUBSCRIBER_BASE rclcpp::SubscriptionBase
+#define SERVICE_CLIENT(type) rclcpp::Client<type> 
+#define SERVICE_CLIENT_BASE rclcpp::ClientBase
+#define SERVICE_SERVER(type) rclcpp::Service<type>
+#define SERVICE_SERVER_BASE rclcpp::ServiceBase
 #define CREATE_PUB_POINTER(node, type, topic, is_transient_local, is_best_effort) \
     [&node, &topic, is_transient_local, is_best_effort] () { \
         rclcpp::QoS qos(10); \
@@ -36,5 +40,13 @@
         if (is_transient_local) qos.transient_local(); \
         if (is_best_effort) qos.best_effort(); \
         return node.create_subscription<type>(topic, qos, callback, opts); \
+    }();
+#define CREATE_CLIENT_POINTER(node, type, name) \
+    [&node, &name] () { \
+        return node.create_client<type>(name); \
+    }();
+#define CREATE_SERVER_POINTER(node, type, name, callback) \
+    [&node, &name, &callback] () { \
+        return node.create_service<type>(name, callback);\
     }();
 #endif
