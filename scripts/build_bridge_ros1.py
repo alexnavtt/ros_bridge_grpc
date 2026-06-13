@@ -112,9 +112,16 @@ def check_packet_compatibility(message_obj, proto_field: Field, fields_to_delete
     """
     # TODO: Check repeated size
 
+    # Automatically accept empty messages
+    if proto_field.type == 'google.protobuf.Empty':
+        if message_obj.__slots__:
+            logger.log_msg(f'Message type {msg_package}/{msg_name} is empty in ROS2 but not in ROS1')
+            return False
+        return True
+
     msg_package, msg_name = message_obj._type.split('/')
 
-    if proto_field.name not in message_obj.__slots__:
+    if proto_field.name not in message_obj.__slots__ and proto_field.type != 'google.protobuf.Empty':
         logger.log_msg(f'Message type {msg_package}/{msg_name} has field {proto_field.name} in ROS2 but not in ROS1')
         if override:
             fields_to_delete.add(proto_field.name)

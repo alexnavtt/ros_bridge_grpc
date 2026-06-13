@@ -145,6 +145,11 @@ def get_message_proto_string(msg_interface):
     for field_name, field_type in msg_interface._fields_and_field_types.items():
         string += f'\t{resolve_type(field_type)} {field_name} = {idx};\n'
         idx += 1
+
+    # Empty interface, we need to add an empty message here
+    if not msg_interface._fields_and_field_types:
+        string += '\tgoogle.protobuf.Empty empty_msg = 1;\n'
+
     string += '}\n'
 
     return string
@@ -200,6 +205,7 @@ def ros2_service_to_proto_srv(msg_package: str, srv_type: str, proto_path: str, 
     with open(file_path, 'w') as f:
         f.write('syntax = "proto3";\n')
         f.write(f'package {msg_package}_proto;\n')
+        f.write(f'import "google/protobuf/empty.proto";\n')
 
         f.write(resolve_all_imports([full_service_type.Request, full_service_type.Response]))
         f.write(get_message_proto_string(full_service_type.Request))
