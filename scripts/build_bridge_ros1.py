@@ -332,6 +332,8 @@ def main():
 
     missed_packages = set()
     proto_path = sys.argv[1]
+    deleted_files = set()
+
     logger = Logger(os.path.join(proto_path, 'log', 'ros1_bridge.txt'))
     for file_path in Path(proto_path).rglob('*.proto'):
         filename = os.path.basename(file_path)
@@ -350,12 +352,14 @@ def main():
             missed_packages.add(msg_typename)
             logger.log_msg(f'Cannot find matching type {msg_typename} in package {msg_package}')
             logger.log_msg(f'Deleting {file_path}')
+            deleted_files.add(filename)
             os.remove(file_path)
             continue
 
         if not check_interface_compatibility(msg_package, msg_class, msg_typename, str(file_path), msg_overrides, logger):
             logger.log_msg(f'Message {msg_package}/{msg_typename} is not compatible between ROS1 and ROS2')
             logger.log_msg(f'Deleting {file_path}')
+            deleted_files.add(filename)
             os.remove(file_path)
             continue
 
@@ -363,6 +367,26 @@ def main():
         logger.log_msg('Unable to find matching interfaces for:')
         for missed_package in sorted(missed_packages):
             logger.log_msg(f'\t{missed_package}')
+
+    # Do one more sweep of the files to remove import lines related to files that we have deleted
+    print(f'{deleted_files=}')
+    for file_path in Path(proto_path).rglob('*.proto'):
+        with open(file_path, 'r') as f:
+            lines = f.readlines()
+        header, messages, services = split_proto_text(lines)
+
+        with open(file_path, 'w') as f:
+            line: str
+            for line in header:
+                if not line.startswith('import'): continue
+                import_filename = line[len('import "'):-3]
+                print(import_filename)
+                if import_filename in deleted_files:
+                    continue
+                f.write(line)
+            for message in messages:
+                f.writelines(message)
+            f.writelines(services)
 
 if __name__ == "__main__":
     main()
