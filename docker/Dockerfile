@@ -361,4 +361,4 @@ RUN sed -i 's/#force_color_prompt=yes/force_color_prompt=yes/' "/root/.bashrc" \
     && echo "source /opt/ros/${ROS1_DISTRO}/setup.bash" >> /root/.bashrc
 
 # ROS logging format
-ENV ROSCONSOLE_FORMAT '[${severity}] [${node} -> ${function}]: ${message}'
+ENV ROSCONSOLE_FORMAT='[${severity}] [${node} -> ${function}]: ${message}'
