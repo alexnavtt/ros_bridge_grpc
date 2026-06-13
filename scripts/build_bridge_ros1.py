@@ -378,11 +378,10 @@ def main():
         with open(file_path, 'w') as f:
             line: str
             for line in header:
-                if not line.startswith('import'): continue
-                import_filename = line[len('import "'):-3]
-                print(import_filename)
-                if import_filename in deleted_files:
-                    continue
+                if line.startswith('import'):
+                    import_filename = line[len('import "'):-3]
+                    if import_filename in deleted_files:
+                        continue
                 f.write(line)
             for message in messages:
                 f.writelines(message)
