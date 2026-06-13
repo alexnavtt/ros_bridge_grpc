@@ -130,7 +130,7 @@ def get_message_proto_string(msg_interface):
     string = ""
 
     # Resolve the actual message definition
-    string += f'message {msg_interface.__name__} {"{"}\n'
+    string += f'message {msg_interface.__name__.replace("_", "")} {"{"}\n'
 
     # Resolve any constants in the message as an enum
     constants = msg_interface.__class__.__prepare__('', '')
@@ -209,11 +209,11 @@ def ros2_service_to_proto_srv(msg_package: str, srv_type: str, proto_path: str, 
         f.write(
             f'message {srv_type}RequestPacket {"{"}\n'
             f'    string service = 1;\n'
-            f'    {srv_type}_Request request = 2;\n'
+            f'    {srv_type}Request request = 2;\n'
             '}\n'
             f'message {srv_type}ResponsePacket {"{"}\n'
             f'    string service = 1;\n'
-            f'    {srv_type}_Response response = 2;\n'
+            f'    {srv_type}Response response = 2;\n'
             '}\n'
             f'service Send{srv_type}SrvROS {"{"}\n'
             f'    rpc CallROSService ({srv_type}RequestPacket) returns ({srv_type}ResponsePacket) {"{}"}\n'
