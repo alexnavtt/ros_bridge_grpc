@@ -22,6 +22,7 @@ class FileMetadata:
         self.filename = os.path.basename(proto_path)
         self.msg_package, self.msg_class, self.msg_type, _ = self.filename.split('.')
         self.mode = mode
+        self.conversion_filename = f'convert_{self.msg_package}_{self.msg_type}.cpp'
 
         # Define what the C++ types are called in this ROS version for this message/service type
         if self.mode == 'ros1':
@@ -69,93 +70,95 @@ class FileMetadata:
                 if len(self.basic_fields) == 2:
                     break
 
-def add_subscription_generator_callback(file_metadata: FileMetadata, f: typing.IO) -> None:
-    ros_type = file_metadata.ros_type
+def add_subscription_generator_callback(file_metadata: FileMetadata, dest_path: str) -> None:
+    ros_type = file_metadata.ros_type[0]
     msg_package = file_metadata.msg_package
     msg_type = file_metadata.msg_type
     pointer = file_metadata.pointer
     mode = file_metadata.mode
-    proto_type = file_metadata.proto_type
+    proto_type = file_metadata.proto_type[0]
     
-    f.write(
-        f'template<>\n'
-        f'std::shared_ptr<SUBSCRIBER_BASE> registerSubscription<{ros_type}>(const std::string& topic, NODE nh, std::shared_ptr<grpc::Channel> channel, [[maybe_unused]] bool transient_local, [[maybe_unused]] bool best_effort) {"{"}\n'
-        f'    static std::map<grpc::Channel*, std::unique_ptr<{msg_package}_proto::Send{msg_type}ROS::Stub>> stubs;\n'
-        f'    if (!stubs.count(channel.get())) {"{"}\n'
-        f'        stubs[channel.get()] = std::move({msg_package}_proto::Send{msg_type}ROS::NewStub(channel));\n'
-        f'    {"}"}\n'
-        f'    \n'
-        f'    auto& stub = stubs.at(channel.get());\n'
-    )
-
-    if mode == 'ros1':
+    with open(os.path.join(dest_path, file_metadata.conversion_filename), 'a') as f:
         f.write(
-        f'    auto callback = [&stub, topic, &nh](const ros::MessageEvent<const {ros_type}>& event) {"{"}\n'
-        f'        // Ignore message from self\n'
-        f'        if (event.getPublisherName() == ros::this_node::getName()) return;\n'
-        f'        const {ros_type}::{pointer} msg = event.getConstMessage();\n'
-        )
-    else:
-        f.write(
-        f'    auto callback = [&stub, topic, &nh](const {ros_type}::{pointer} msg) {"{"}\n'
+            f'template<>\n'
+            f'std::shared_ptr<SUBSCRIBER_BASE> registerSubscription<{ros_type}>(const std::string& topic, NODE nh, std::shared_ptr<grpc::Channel> channel, [[maybe_unused]] bool transient_local, [[maybe_unused]] bool best_effort) {"{"}\n'
+            f'    static std::map<grpc::Channel*, std::unique_ptr<{msg_package}_proto::Send{msg_type}ROS::Stub>> stubs;\n'
+            f'    if (!stubs.count(channel.get())) {"{"}\n'
+            f'        stubs[channel.get()] = std::move({msg_package}_proto::Send{msg_type}ROS::NewStub(channel));\n'
+            f'    {"}"}\n'
+            f'    \n'
+            f'    auto& stub = stubs.at(channel.get());\n'
         )
 
-    f.write(
-        f'        {proto_type}Packet proto_message;\n'
-        f'        proto_message.set_topic(topic);\n'
-        f'        ros2grpc(*msg, *proto_message.mutable_message());\n'
-        f'        grpc::ClientContext client_context;\n'
-        f'        google::protobuf::Empty empty_message;\n'
-        f'        client_context.AddMetadata("{mode}", "");\n'
-        f'        grpc::Status status = stub->SendROSMessage(&client_context, proto_message, &empty_message);\n'
-        f'        if (!status.ok()) LOG_INFO(nh, "gRPC call failed sending message type {ros_type} across bridge");\n'
-        f'    {"}"};\n'
-        f'    \n'
-        f'    auto sub = CREATE_SUB_POINTER(nh, {ros_type}, topic, callback, transient_local, best_effort);\n'
-        f'    return std::static_pointer_cast<SUBSCRIBER_BASE>(sub);\n'
-        f'{"}"}\n\n'
-    )
+        if mode == 'ros1':
+            f.write(
+            f'    auto callback = [&stub, topic, &nh](const ros::MessageEvent<const {ros_type}>& event) {"{"}\n'
+            f'        // Ignore message from self\n'
+            f'        if (event.getPublisherName() == ros::this_node::getName()) return;\n'
+            f'        const {ros_type}::{pointer} msg = event.getConstMessage();\n'
+            )
+        else:
+            f.write(
+            f'    auto callback = [&stub, topic, &nh](const {ros_type}::{pointer} msg) {"{"}\n'
+            )
 
-def add_publisher_generator_callback(file_metadata: FileMetadata, f: typing.IO) -> None:
-    ros_type = file_metadata.ros_type
+        f.write(
+            f'        {proto_type}Packet proto_message;\n'
+            f'        proto_message.set_topic(topic);\n'
+            f'        ros2grpc(*msg, *proto_message.mutable_message());\n'
+            f'        grpc::ClientContext client_context;\n'
+            f'        google::protobuf::Empty empty_message;\n'
+            f'        client_context.AddMetadata("{mode}", "");\n'
+            f'        grpc::Status status = stub->SendROSMessage(&client_context, proto_message, &empty_message);\n'
+            f'        if (!status.ok()) LOG_INFO(nh, "gRPC call failed sending message type {ros_type} across bridge");\n'
+            f'    {"}"};\n'
+            f'    \n'
+            f'    auto sub = CREATE_SUB_POINTER(nh, {ros_type}, topic, callback, transient_local, best_effort);\n'
+            f'    return std::static_pointer_cast<SUBSCRIBER_BASE>(sub);\n'
+            f'{"}"}\n\n'
+        )
+
+def add_publisher_generator_callback(file_metadata: FileMetadata, dest_path: str) -> None:
+    ros_type = file_metadata.ros_type[0]
     msg_package = file_metadata.msg_package
     msg_type = file_metadata.msg_type
     mode = file_metadata.mode
-    proto_type = file_metadata.proto_type
+    proto_type = file_metadata.proto_type[0]
 
-    f.write(
-        f'template<>\n'
-        f'std::shared_ptr<grpc::Service> registerPublisher<{ros_type}>(const std::string& topic, NODE nh, grpc::ServerBuilder& server_builder, bool transient_local, bool best_effort) {"{"}\n'
-        f'    class SendROSMessageImpl final : public {msg_package}_proto::Send{msg_type}ROS::Service {"{"}\n'
-        f'    public:\n'
-        f'        grpc::Status SendROSMessage (grpc::ServerContext* context, const {proto_type}Packet* message, google::protobuf::Empty* response) override {"{"}\n'
-        f'            if (context->client_metadata().count("{mode}")) return grpc::Status::OK;\n'
-        f'            {ros_type} ros_msg;\n'
-        f'            grpc2ros(message->message(), ros_msg);\n'
-        f'            if (pubs_.count(message->topic()) == 0) {"{"}\n'
-        f'                return grpc::Status(grpc::StatusCode::NOT_FOUND, "Received message on unregistered topic" + message->topic());\n'
-        f'            {"}"}\n'
-        f'            pubs_.at(message->topic())->publish(ros_msg);\n'
-        f'            return grpc::Status::OK;\n'
-        f'        {"}"}\n'
-        f'    \n'
-        f'        void add_topic(NODE node, std::string topic, [[maybe_unused]] bool transient_local, [[maybe_unused]] bool best_effort) {"{"}\n'
-        f'            pubs_[topic] = CREATE_PUB_POINTER(node, {ros_type}, topic, transient_local, best_effort);\n'
-        f'        {"}"}\n'
-        f'    \n'
-        f'    private:\n'      
-        f'        std::unordered_map<std::string, std::shared_ptr<PUBLISHER({ros_type})>> pubs_;\n'
-        f'    {"}"};\n'
-        f'    \n'
-        f'    static std::shared_ptr<SendROSMessageImpl> service;\n'
-        f'    if (!service) {"{"}\n'
-        f'        service = std::make_shared<SendROSMessageImpl>();\n'
-        f'        server_builder.RegisterService(service.get());\n'
-        f'    {"}"}\n'
-        f'    service->add_topic(nh, topic, transient_local, best_effort);\n'
-        f'    return std::static_pointer_cast<grpc::Service>(service);\n'
-        f'{"}"};\n'
-    )
+    with open(os.path.join(dest_path, file_metadata.conversion_filename), 'a') as f:
+        f.write(
+            f'template<>\n'
+            f'std::shared_ptr<grpc::Service> registerPublisher<{ros_type}>(const std::string& topic, NODE nh, grpc::ServerBuilder& server_builder, bool transient_local, bool best_effort) {"{"}\n'
+            f'    class SendROSMessageImpl final : public {msg_package}_proto::Send{msg_type}ROS::Service {"{"}\n'
+            f'    public:\n'
+            f'        grpc::Status SendROSMessage (grpc::ServerContext* context, const {proto_type}Packet* message, google::protobuf::Empty* response) override {"{"}\n'
+            f'            if (context->client_metadata().count("{mode}")) return grpc::Status::OK;\n'
+            f'            {ros_type} ros_msg;\n'
+            f'            grpc2ros(message->message(), ros_msg);\n'
+            f'            if (pubs_.count(message->topic()) == 0) {"{"}\n'
+            f'                return grpc::Status(grpc::StatusCode::NOT_FOUND, "Received message on unregistered topic" + message->topic());\n'
+            f'            {"}"}\n'
+            f'            pubs_.at(message->topic())->publish(ros_msg);\n'
+            f'            return grpc::Status::OK;\n'
+            f'        {"}"}\n'
+            f'    \n'
+            f'        void add_topic(NODE node, std::string topic, [[maybe_unused]] bool transient_local, [[maybe_unused]] bool best_effort) {"{"}\n'
+            f'            pubs_[topic] = CREATE_PUB_POINTER(node, {ros_type}, topic, transient_local, best_effort);\n'
+            f'        {"}"}\n'
+            f'    \n'
+            f'    private:\n'      
+            f'        std::unordered_map<std::string, std::shared_ptr<PUBLISHER({ros_type})>> pubs_;\n'
+            f'    {"}"};\n'
+            f'    \n'
+            f'    static std::shared_ptr<SendROSMessageImpl> service;\n'
+            f'    if (!service) {"{"}\n'
+            f'        service = std::make_shared<SendROSMessageImpl>();\n'
+            f'        server_builder.RegisterService(service.get());\n'
+            f'    {"}"}\n'
+            f'    service->add_topic(nh, topic, transient_local, best_effort);\n'
+            f'    return std::static_pointer_cast<grpc::Service>(service);\n'
+            f'{"}"};\n\n'
+        )
 
 def generate_cpp_conversion_code(file_metadata: FileMetadata, dest_path: str) -> None:
     msg_package = file_metadata.msg_package
@@ -287,6 +290,10 @@ def main():
             file_metadata = FileMetadata(file_path, mode)
             generate_cpp_conversion_code(file_metadata, dest_path)
             generate_registration_functions(file_metadata, dest_path)
+
+            if file_metadata.msg_class == 'msg':
+                add_publisher_generator_callback(file_metadata, dest_path)
+                add_subscription_generator_callback(file_metadata, dest_path)
 
 if __name__ == '__main__':
     main()
