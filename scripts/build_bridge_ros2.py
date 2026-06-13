@@ -148,7 +148,7 @@ def get_message_proto_string(msg_interface):
 
     # Empty interface, we need to add an empty message here
     if not msg_interface._fields_and_field_types:
-        string += '\tgoogle.protobuf.Empty empty_msg = 1;\n'
+        string += '\tgoogle.protobuf.Empty __ros_bridge_grpc_empty_msg = 1;\n'
 
     string += '}\n'
 
