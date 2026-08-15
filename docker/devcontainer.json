@@ -1,0 +1,17 @@
+{
+	"name": "ROS Bridge GRPC",
+	"dockerComposeFile": "../src/ros1_bridge_grpc/docker/ros1_dev.docker_compose.yaml",
+	"service": "ros1_devel",
+	"workspaceFolder": "/home/${localEnv:USER}/catkin_ws",
+	"forwardPorts": [],
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-vscode.cpptools",
+				"twxs.cmake",
+				"ms-iot.vscode-ros"
+			]
+		}
+	}
+}

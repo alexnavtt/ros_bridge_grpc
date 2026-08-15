@@ -18,8 +18,10 @@ def main(config_file: str):
     match output_dict['ROS_BRIDGE_GRPC_ROS2_DISTRO']:
         case ('humble'|'iron'):
             output_dict['ROS_BRIDGE_GRPC_ROS2_UBUNTU'] = 'jammy'
-        case ('jazzy'):
+        case ('jazzy'|'kilted'):
             output_dict['ROS_BRIDGE_GRPC_ROS2_UBUNTU'] = 'noble'
+        case ('lyrical'):
+            output_dict['ROS_BRIDGE_GRPC_ROS2_UBUNTU'] = 'resolute'
 
     # Message types
     system_packages = ""
