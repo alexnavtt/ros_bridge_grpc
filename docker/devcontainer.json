@@ -1,8 +1,8 @@
 {
-	"name": "Ubuntu",
+	"name": "ROS Bridge GRPC",
 	"dockerComposeFile": "../src/ros1_bridge_grpc/docker/ros1_dev.docker_compose.yaml",
 	"service": "ros1_devel",
-	"workspaceFolder": "/home/alex/catkin_ws",
+	"workspaceFolder": "/home/${localEnv:USER}/catkin_ws",
 	"forwardPorts": [],
 	"customizations": {
 		"vscode": {
