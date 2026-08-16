@@ -8,9 +8,22 @@
 #define PUBLISHER_BASE ros::Publisher
 #define SUBSCRIBER(type) ros::Subscriber
 #define SUBSCRIBER_BASE ros::Subscriber
+#define SERVICE_SERVER(type) ros::ServiceServer
+#define SERVICE_SERVER_BASE ros::ServiceServer
+#define SERVICE_CLIENT(type) ros::ServiceClient
+#define SERVICE_CLIENT_BASE ros::ServiceClient
 #define CREATE_PUB_POINTER(node, type, topic, is_transient_local, is_best_effort) std::make_shared<ros::Publisher>(node.advertise<type>(topic, 10, is_transient_local))
 #define BOOST_CALLBACK_FN_TYPE(type) boost::function<void(const ros::MessageEvent<type>&)>
 #define CREATE_SUB_POINTER(node, type, topic, callback, is_transient_local, is_best_effort) std::make_shared<ros::Subscriber>(node.subscribe<type>(topic, 10, static_cast<BOOST_CALLBACK_FN_TYPE(type)>(callback)))
+#define CREATE_CLIENT_POINTER(node, type, name) std::make_shared<ros::ServiceClient>(node.serviceClient<type>(name))
+#define CREATE_SERVER_POINTER(node, type, name, callback) std::make_shared<ros::ServiceServer>(node.advertiseService(name, boost::function<bool(type::Request&, type::Response&)>(callback)))
+#define ASYNC_SEND_REQUEST(client_, ros_request, service_type, callback) \
+    {auto t_func = [client=client_, &ros_request, &callback]() { \
+        auto service_obj = service_type{}; \
+        service_obj.request = *ros_request; \
+        const bool success = client->call(service_obj); \
+        callback(success ? std::shared_ptr<service_type::Response>() : std::make_shared<service_type::Response>(service_obj.response)); \
+    }; std::thread(t_func).detach();}
 #endif
 
 #ifdef ROS2
@@ -49,4 +62,8 @@
     [&node, &name, &callback] () { \
         return node.create_service<type>(name, callback);\
     }();
+#define ASYNC_SEND_REQUEST(client_, ros_request, service_type, callback) \
+    {auto c_func = [&callback](std::shared_future<std::shared_ptr<service_type::Response>> future){ \
+        callback(future.get()); \
+    }; client_->async_send_request(ros_request, c_func);}
 #endif

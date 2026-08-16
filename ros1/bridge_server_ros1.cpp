@@ -1,4 +1,6 @@
 #include <any>
+#include <memory>
+#include <string>
 #include <thread>
 #include <filesystem>
 #include <type_traits>
@@ -109,13 +111,21 @@ public:
     // The names of the topics we'd like to bridge and the types they're registered to
     std::unordered_map<std::string, std::string> registered_topics_and_types;
 
-    // The publisher registration callbacks, which create a publisher to ROS2 and returns a gRPC service
+    // The publisher registration callbacks, which create a publisher to ROS1 and returns a gRPC service
     using PublisherRegisterCallback_t = std::function<std::any(const std::string&, ros::NodeHandle&, grpc::ServerBuilder&, bool, bool)>;
     static std::unordered_map<std::string, PublisherRegisterCallback_t> publisher_registration_callbacks;
 
-    // The subscriptions callbacks, which create a subscription to ROS2 message and a client to gRPC
+    // The subscriptions callbacks, which create a subscription to ROS1 message and a client to gRPC
     using SubscriberRegisterCallback_t = std::function<std::shared_ptr<ros::Subscriber>(const std::string&, ros::NodeHandle&, std::shared_ptr<grpc::Channel>, bool, bool)>;
     static std::unordered_map<std::string, SubscriberRegisterCallback_t> subscriber_registration_callbacks;
+
+    // The service client callbacks, which create a client for a ROS1 server and a server to gRPC
+    using ServiceClientRegisterCallback_t = std::function<std::shared_ptr<grpc::Service>(const std::string&, ros::NodeHandle&, grpc::ServerBuilder&)>;
+    static std::unordered_map<std::string, ServiceClientRegisterCallback_t> client_registration_callbacks;
+
+    // The service server callbacks, which create a server for a ROS1 client and a client to gRPC
+    using ServiceServerRegisterCallback_t = std::function<std::shared_ptr<ros::ServiceServer>(const std::string&, ros::NodeHandle&, std::shared_ptr<grpc::Channel>)>;
+    static std::unordered_map<std::string, ServiceServerRegisterCallback_t> server_registration_callbacks;
 
     // The actual subscribers and publishers used
     std::unordered_map<std::string, std::any> publishers;
@@ -131,6 +141,8 @@ public:
 
 std::unordered_map<std::string, BridgeServerROS1::PublisherRegisterCallback_t> BridgeServerROS1::publisher_registration_callbacks;
 std::unordered_map<std::string, BridgeServerROS1::SubscriberRegisterCallback_t> BridgeServerROS1::subscriber_registration_callbacks;
+std::unordered_map<std::string, BridgeServerROS1::ServiceClientRegisterCallback_t> BridgeServerROS1::client_registration_callbacks;
+std::unordered_map<std::string, BridgeServerROS1::ServiceServerRegisterCallback_t> BridgeServerROS1::server_registration_callbacks;
 
 // Inlcude our auto-generated files, which populate the registration callback variables
 void registerAllTypes() {

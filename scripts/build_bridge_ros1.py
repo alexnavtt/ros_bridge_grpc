@@ -133,12 +133,15 @@ def check_packet_compatibility(message_obj, proto_field: Field, fields_to_delete
     ros1_msg_type: str = message_obj._slot_types[corresponding_field_idx]
     ros2_msg_type: str = proto_field.type.replace('_msg_proto.', '.').replace('.', '/')
 
-    # We cannot reconcile (and therefore override) a cardinality mismatch
     if ros1_msg_type.endswith(']'):
+        ros1_msg_type = ros1_msg_type[:ros1_msg_type.find('[')]
         if proto_field.cardinality != FieldCardinality.REPEATED and proto_field.type != 'bytes':
             logger.log_msg(f'{msg_package}/{proto_field.name} is an array in ROS1 but not in ROS2')
-            return False
-        ros1_msg_type = ros1_msg_type[:ros1_msg_type.find('[')]
+            if override:
+                fields_to_delete.add(proto_field.name)
+                return True
+            else:
+                return False
 
     if not are_types_equivalent(ros1_msg_type, ros2_msg_type):
         logger.log_msg(f'Message type {msg_package}/{proto_field.name} has type {ros2_msg_type} in ROS2 but type {ros1_msg_type} in ROS1')
