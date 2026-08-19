@@ -3,79 +3,10 @@ ARG ROS2_DISTRO=humble
 ARG ROS2_UBUNTU=jammy
 
 # -------------------------------------------------------------------------------------------------
-# GRPC GIT
-# ------------------------------------------------------------------------------------------------- 
-    
-FROM alpine/git AS grpc_base
-RUN cd / && git clone --recurse-submodules -b v1.66.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc
-
-# -------------------------------------------------------------------------------------------------
-# GRPC ROS2
+# Base Images
 # -------------------------------------------------------------------------------------------------
 
-# Build gRPC for use in both sides of the bridge
-FROM ubuntu:${ROS2_UBUNTU} AS grpc_base_ros2
-
-ARG DEBIAN_FRONTEND=noninteractive
-
-RUN apt update \
-    && apt install -y \
-        git \
-        cmake \
-        build-essential \
-        autoconf \
-        libtool \
-        pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=grpc_base /grpc /grpc
-RUN export MY_INSTALL_DIR=/install \
-    && mkdir -p $MY_INSTALL_DIR \
-    && cd /grpc \
-    && mkdir -p cmake/build \
-    && cd cmake/build \
-    && cmake -DgRPC_INSTALL=ON \
-        -DgRPC_BUILD_TESTS=OFF \
-        -DCMAKE_CXX_STANDARD=17 \
-        -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR \
-        ../.. \
-    && make -j 8 \
-    && make install
-
-# -------------------------------------------------------------------------------------------------
-# GRPC ROS1
-# -------------------------------------------------------------------------------------------------
-
-# Build gRPC for use in both sides of the bridge
-FROM ubuntu:focal AS grpc_base_ros1
-
-ARG DEBIAN_FRONTEND=noninteractive
-
-RUN apt update \
-    && apt install -y \
-        git \
-        cmake \
-        build-essential \
-        autoconf \
-        libtool \
-        pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=grpc_base /grpc /grpc
-RUN export MY_INSTALL_DIR=/install \
-    && mkdir -p $MY_INSTALL_DIR \
-    && cd /grpc \
-    && mkdir -p cmake/build \
-    && cd cmake/build \
-    && rm -rf * \
-    && export MAKE=/usr/bin/make \
-    && cmake -DgRPC_INSTALL=ON \
-        -DgRPC_BUILD_TESTS=OFF \
-        -DCMAKE_CXX_STANDARD=17 \
-        -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR \
-        ../.. \
-    && make -j 8 \
-    && make install
+FROM grpc_bridge_base:${ROS2_UBUNTU} AS grpc_base_ros2
 
 # -------------------------------------------------------------------------------------------------
 # ROS2 Generate
@@ -211,7 +142,7 @@ RUN rosdep update \
 RUN source /opt/ros/${ROS1_DISTRO}/setup.bash && catkin build ${CUSTOM_PACKAGES} && echo "if [ -f '/user_ws/devel/setup.bash' ]; then source /user_ws/devel/setup.bash; fi" >> ~/.profile
 
 # Copy the generated protoc and gRPC libraries
-COPY --from=grpc_base_ros1 /install /install
+COPY --from=grpc_bridge_base:focal /install /install
 ENV PATH="/install/bin:$PATH"
 
 # Copy generated library code
@@ -261,7 +192,7 @@ FROM ros2_generated AS ros2_build
 
 # Add the ROS2 package and compile
 WORKDIR /colcon_ws
-COPY ros2 /colcon_ws/src/ros2
+COPY ros2/ros2_bridge_grpc /colcon_ws/src/ros2/ros2_bridge_grpc
 COPY common /common
 
 ARG MESSAGE_PACKAGES
@@ -285,7 +216,7 @@ COPY --from=ros2_generated /generated /generated
 
 # Add the ROS1 package and compile
 WORKDIR /catkin_ws
-COPY ros1 /catkin_ws/src/ros1
+COPY ros1/ros1_bridge_grpc /catkin_ws/src/ros1_bridge_grpc
 COPY common /common
 
 ARG MESSAGE_PACKAGES
@@ -330,7 +261,7 @@ RUN sed -i 's/#force_color_prompt=yes/force_color_prompt=yes/' "/root/.bashrc" \
     && echo "source /opt/ros/${ROS2_DISTRO}/setup.bash" >> /root/.bashrc
 
 # ROS logging format
-ENV ROSCONSOLE_FORMAT '[${severity}] [${node} -> ${function}]: ${message}'
+ENV ROSCONSOLE_FORMAT='[${severity}] [${node} -> ${function}]: ${message}'
 
 # -------------------------------------------------------------------------------------------------
 # ROS1 Bridge Dev

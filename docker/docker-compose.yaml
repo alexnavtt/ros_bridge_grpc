@@ -1,4 +1,14 @@
 services:
+  grpc_base:
+    build:
+      context: ../.
+      dockerfile: docker/grpc_base.Dockerfile
+      target: grpc_base_ros2
+      args:
+        UBUNTU_DISTRO: $UBUNTU_DISTRO
+    image: grpc_bridge_base:${UBUNTU_DISTRO:-jammy}
+    profiles: [base]
+
   ros_bridge:
     build:
       context: ../.
@@ -26,7 +36,6 @@ services:
     network_mode: host
     pid: host
     ipc: host
-    profiles: [all]
 
   ros1_bridge_introspection:
     extends: ros_bridge
@@ -37,6 +46,7 @@ services:
     environment:
       - ROS_MASTER_URI
       - ROS_HOSTNAME
+    profiles: [dev]
 
   ros1_bridge:
     extends: ros1_bridge_introspection
@@ -58,6 +68,7 @@ services:
       - ROS_DOMAIN_ID
       - RMW_IMPLEMENTATION
       - CYCLONEDDS_URI=/cyclonedds_uri.xml
+    profiles: [dev]
 
   ros2_bridge:
     extends: ros2_bridge_introspection
