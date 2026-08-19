@@ -27,7 +27,7 @@ def main(config_file: str):
     system_packages = ""
     allowed_types = ""
     for msg_package, message_types in config_dict.get('msg_packages', dict()).items():
-        system_packages += f'{msg_package} '
+        system_packages += f'{msg_package[:str.find(msg_package, '/')]} '
         for msg_type in message_types:
             allowed_types += f'{msg_package}/{msg_type} '
     output_dict['ROS_BRIDGE_GRPC_MESSAGE_PACKAGES'] = system_packages

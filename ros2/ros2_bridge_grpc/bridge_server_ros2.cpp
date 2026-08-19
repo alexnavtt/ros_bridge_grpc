@@ -19,13 +19,22 @@ public:
     BridgeServerROS2(const std::string& name) : Node(name)
     {
         RCLCPP_INFO(get_logger(), "Starting ROS2 bridge server");
-        // Retrieve the list of topics and types for which to create bridges
+        
+        // Retrieve the list of topics and their types for which to create bridges
         rcl_interfaces::msg::ParameterDescriptor registered_topics_config;
         registered_topics_config.name = "registered_topics";
         registered_topics_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING_ARRAY;
-        registered_topics_config.description = "The list of topics and types to bridge in the form /my_namespace/my_topic:MyMessagePackage/MyMessageType";
+        registered_topics_config.description = "The list of topics and types to bridge in the form /my_namespace/my_topic";
         registered_topics_config.read_only = true;
         std::vector<std::string> registered_topics_param = declare_parameter(registered_topics_config.name, std::vector<std::string>{}, registered_topics_config);
+
+        // Retrieve the list of services and their types for which to create bridges
+        rcl_interfaces::msg::ParameterDescriptor registered_services_config;
+        registered_services_config.name = "registered_services";
+        registered_services_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING_ARRAY;
+        registered_services_config.description = "The list of services and types to bridge in the form /my_namespace/my_service_name";
+        registered_services_config.read_only = true;
+        std::vector<std::string> registered_services_param = declare_parameter(registered_services_config.name, std::vector<std::string>{}, registered_services_config);
 
         // Retrieve the channel on which to create the grpc server
         rcl_interfaces::msg::ParameterDescriptor ros2_server_address_config;
@@ -110,6 +119,43 @@ public:
             subscribers[topic] = subscriber_registration_callbacks.at(type)(topic, *this, channel, is_transient_local, is_best_effort);
         }
 
+        rcl_interfaces::msg::ParameterDescriptor service_type_param;
+        topic_type_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+        rcl_interfaces::msg::ParameterDescriptor service_role_param;
+        topic_type_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+        for (const std::string& service_name : registered_services_param) {
+            service_type_param.name = service_name + ".type";
+            const std::string type = declare_parameter<std::string>(service_type_param.name, service_type_param);
+
+            service_role_param.name = service_name + ".role";
+            const std::string role = declare_parameter<std::string>(service_role_param.name, service_role_param);
+            if (role != "service" && role != "client") {
+                RCLCPP_ERROR(get_logger(), "Unknown role passed for %s: \"%s\". Valid options are \"service\" and \"client\"", service_name.c_str(), role.c_str());
+                continue;
+            }
+
+            if (!client_registration_callbacks.count(type) || !server_registration_callbacks.count(type)) {
+                RCLCPP_ERROR(get_logger(), "Requested type %s for service %s is unknown to the bridge server, cannot make a connnection!", type.c_str(), service_name.c_str());
+                continue;
+            }
+
+            if (registered_topics_and_types.count(service_name)) {
+                if (registered_topics_and_types.at(service_name) != type) {
+                    RCLCPP_ERROR(get_logger(), "Failed to register %s %s using type %s as it clashes with an existing registration with type %s",
+                        role.c_str(), service_name.c_str(), type.c_str(), registered_topics_and_types.at(service_name).c_str());
+                }
+                continue;
+            }
+
+            RCLCPP_INFO(get_logger(), "Registering %s %s using type %s", role.c_str(), service_name.c_str(), type.c_str());
+            registered_topics_and_types[service_name] = type;
+            if (role == "service") {
+                services[service_name] = server_registration_callbacks.at(type)(service_name, *this, channel);
+            } else if (role == "client") {
+                clients[service_name] = client_registration_callbacks.at(type)(service_name, *this, builder);
+            }
+        }
+
         grpc_queue = builder.AddCompletionQueue();
         grpc_queue_thread = std::thread([this](){
             void* tag;
@@ -138,9 +184,19 @@ public:
     using SubscriberRegisterCallback_t = std::function<rclcpp::SubscriptionBase::SharedPtr(const std::string&, rclcpp::Node&, std::shared_ptr<grpc::Channel>, bool, bool)>;
     static std::unordered_map<std::string, SubscriberRegisterCallback_t> subscriber_registration_callbacks;
 
+    // The service client callbacks, which create a client for a ROS1 server and a server to gRPC
+    using ServiceClientRegisterCallback_t = std::function<std::shared_ptr<grpc::Service>(const std::string&, rclcpp::Node&, grpc::ServerBuilder&)>;
+    static std::unordered_map<std::string, ServiceClientRegisterCallback_t> client_registration_callbacks;
+
+    // The service server callbacks, which create a server for a ROS1 client and a client to gRPC
+    using ServiceServerRegisterCallback_t = std::function<rclcpp::ServiceBase::SharedPtr(const std::string&, rclcpp::Node&, std::shared_ptr<grpc::Channel>)>;
+    static std::unordered_map<std::string, ServiceServerRegisterCallback_t> server_registration_callbacks;
+
     // The actual subscribers and publishers used
     std::unordered_map<std::string, std::shared_ptr<grpc::Service>> publishers;
     std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr> subscribers;
+    std::unordered_map<std::string, std::shared_ptr<grpc::Service>> clients;
+    std::unordered_map<std::string, rclcpp::ServiceBase::SharedPtr> services;
 
     // The gRPC communication channel
     std::unique_ptr<grpc::Server> grpc_server;
@@ -152,6 +208,8 @@ public:
 
 std::unordered_map<std::string, BridgeServerROS2::PublisherRegisterCallback_t> BridgeServerROS2::publisher_registration_callbacks;
 std::unordered_map<std::string, BridgeServerROS2::SubscriberRegisterCallback_t> BridgeServerROS2::subscriber_registration_callbacks;
+std::unordered_map<std::string, BridgeServerROS2::ServiceClientRegisterCallback_t> BridgeServerROS2::client_registration_callbacks;
+std::unordered_map<std::string, BridgeServerROS2::ServiceServerRegisterCallback_t> BridgeServerROS2::server_registration_callbacks;
 
 void registerAllTypes() {
     #include <ros2/register_types.hpp>

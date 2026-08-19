@@ -22,8 +22,12 @@ public:
     BridgeServerROS1(ros::NodeHandle& nh)
     {
         ROS_INFO("Starting ROS1 bridge server");
+
         // Retrieve the list of topics and types for which to create bridges
         std::vector<std::string> registered_topics_param = nh.param("registered_topics", std::vector<std::string>{});
+
+        // Retrieve the list of services and their types for which to create bridges
+        std::vector<std::string> registered_services_param = nh.param("registered_services", std::vector<std::string>{});
 
         // Retrieve the channel on which to create the grpc server
         const std::string ros2_server_address_default = "localhost:50051";
@@ -91,6 +95,47 @@ public:
             subscribers[topic] = subscriber_registration_callbacks.at(type)(topic, nh, channel, latched, false);
         }
 
+        // For each of them, register the corresponding communication elements
+        std::string role;
+        for (const std::string& service_name : registered_services_param) {
+            if (!nh.getParam(service_name + "/type", type)) {
+                ROS_ERROR("Missing required service type parameter for %s", service_name.c_str());
+                continue;
+            }
+
+            if (!nh.getParam(service_name + "/role", role)) {
+                ROS_ERROR("Missing required role for service %s. Valid options are \"service\" or \"client\"", service_name.c_str());
+                continue;
+            }
+
+            if (role != "service" && role != "client") {
+                ROS_ERROR("Got unknown rol %s for %s. Valid options are \"service\" or \"client\"", role.c_str(), service_name.c_str());
+                continue;
+            }
+
+            if (!client_registration_callbacks.count(type) || !server_registration_callbacks.count(type)) {
+                ROS_ERROR("Requested type %s for service %s is unknown to the bridge server, cannot make a connnection!", type.c_str(), service_name.c_str());
+                continue;
+            }
+
+            if (registered_topics_and_types.count(service_name)) {
+                if (registered_topics_and_types.at(service_name) != type) {
+                    ROS_ERROR("Failed to register %s %s using type %s as it clashes with an existing registration with type %s",
+                        role.c_str(), service_name.c_str(), type.c_str(), registered_topics_and_types.at(service_name).c_str());
+                }
+                continue;
+            }
+
+            ROS_INFO("Registering %s %s using type %s", role.c_str(), service_name.c_str(), type.c_str());
+            registered_topics_and_types[service_name] = type;
+            if (role == "service") {
+                services[service_name] = server_registration_callbacks.at(type)(service_name, nh, channel);
+            } else if (role == "client") {
+                clients[service_name] = client_registration_callbacks.at(type)(service_name, nh, builder);
+            }
+        }
+
+
         grpc_queue = builder.AddCompletionQueue();
         grpc_queue_thread = std::thread([this](){
             void* tag;
@@ -130,6 +175,8 @@ public:
     // The actual subscribers and publishers used
     std::unordered_map<std::string, std::any> publishers;
     std::unordered_map<std::string, std::shared_ptr<ros::Subscriber>> subscribers;
+    std::unordered_map<std::string, std::shared_ptr<grpc::Service>> clients;
+    std::unordered_map<std::string, std::shared_ptr<ros::ServiceServer>> services;
 
     // The gRPC communication channel
     std::unique_ptr<grpc::Server> grpc_server;
