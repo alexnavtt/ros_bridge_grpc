@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="2">
+    <name>bridge_interface_example</name>
+    <version>1.0.0</version>
+    <description>Package which demonstrates the way in which local packages can be built and bridged</description>
+    <maintainer email="alexnavtt@utexas.edu">alex</maintainer>
+    <license>BSD</license>
+
+    <depend>protobuf-dev</depend>
+    <buildtool_depend>catkin</buildtool_depend>
+
+    <build_depend>message_generation</build_depend>
+    <build_depend>message_runtime</build_depend>
+    <exec_depend>message_generation</exec_depend>
+    <exec_depend>message_runtime</exec_depend>
+    <export>
+    </export>
+</package>
