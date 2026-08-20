@@ -38,3 +38,7 @@
         return node.create_subscription<type>(topic, qos, callback, opts); \
     }();
 #endif
+
+// Custom UID for each bridge instance
+#include <string>
+extern std::string uid;
