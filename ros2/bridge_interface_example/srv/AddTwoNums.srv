@@ -1,0 +1,6 @@
+float32 num1
+float32 num2
+
+---
+
+bridge_interface_example/Sum result
