@@ -1,6 +1,3 @@
-#include "ros/init.h"
-#include "ros/node_handle.h"
-#include "ros/service_server.h"
 #include <ros/ros.h>
 #include <bridge_interface_example/add_two_nums.h>
 
