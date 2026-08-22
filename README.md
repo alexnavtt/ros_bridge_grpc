@@ -33,15 +33,14 @@ ros1_distro: noetic
 ros2_distro: humble
 
 msg_packages:
-    std_msgs: [ALL]
-
-    geometry_msgs:
-        - Point
-        - Pose
-        - PoseStamped
-
-    sensor_msgs:
-        - PointCloud2
+    std_msgs/msg: [String]
+    tf2_msgs/msg: [ALL]
+    geometry_msgs/msg: [ALL]
+    sensor_msgs/msg: [PointCloud2]
+    moveit_msgs/msg: [JointLimits, SolidPrimitive]
+    std_srvs/srv: [Trigger, SetBool]
+    my_package/msg: [MyMessage]
+    my_package/srv: [MyService]
 
 custom_packages:
     - {package_name: my_package,
@@ -58,7 +57,10 @@ custom_packages:
        ros2_path: "/local/path/to/my/non_rosdep/ros2/interface/package/dependency"}
 
 compatibility_overrides:
-    - "std_msgs/Header"
+    - "std_msgs/msg/Header"             # Has seq field in ROS1 but not in ROS2
+    - "shape_msgs/msg/SolidPrimitive"   # Has new enum constants added in ROS2
+    - "moveit_msgs/msg/JointLimits"     # Has jerk related fields in ROS2 but not ROS1
+
 ```
 
 Once you have all your desired message packages properly configured, navigate to the `docker` folder in this repo and run 
@@ -75,37 +77,43 @@ Your docker images should build, which will take at least 10 minutes, but potent
 Once complete, you can configure your runtime settings in a separate yaml file which lists the topics and types that you want to bridge. For example:
 
 ```yaml
+# === Messages ===
 registered_topics: 
-  - /my_string_topic
+  - /robot_description
   - /velodyne_points
   - /my_robot/joint_states
   - /tf
   - /tf_static
 
-/my_string_topic: 
-  type: std_msgs/String
+/robot_description: 
+  type: std_msgs/msg/String
+  transient_local: true
 
 /velodyne_points:
-  type: sensor_msgs/PointCloud2
-  best_effort: false
+  type: sensor_msgs/msg/PointCloud2
+  best_effort: true
 
 /my_robot/joint_states:
-  type: sensor_msgs/JointState
+  type: sensor_msgs/msg/JointState
   best_effort: true
 
 /tf:
-  type: tf2_msgs/TFMessage
+  type: tf2_msgs/msg/TFMessage
   
 /tf_static:
-  type: tf2_msgs/TFMessage
+  type: tf2_msgs/msg/TFMessage
   transient_local: true
 
-ros1_server_address: localhost:50051
-ros2_server_address: localhost:50052
+# === Services ===
+registered_services:
+  - /start_behavior_tree
 
-# Alternately with unix sockets
-# Note that the .sock extension is required for this to work
-# /tmp is mounted to the docker images by default, but you can add others if you wish
+/start_behavior_tree:
+  type: std_srvs/srv/Trigger
+  ros1_role: client
+  ros2_role: service
+
+# === Networking ===
 ros1_server_address: /tmp/ros1_server.sock
 ros2_server_address: /tmp/ros2_server.sock
 ```
