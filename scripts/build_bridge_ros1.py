@@ -232,18 +232,17 @@ def check_interface_compatibility(msg_package: str, msg_class: str, msg_name: st
     header, messages, service = split_proto_text(file_text)
     
     # Import the corresponding ROS message package
-    if msg_package not in loaded_msg_packages:
-        try:
-            loaded_msg_packages[msg_package] = importlib.import_module(f'{msg_package}.{msg_class}')
-        except ModuleNotFoundError:
-            logger.log_msg(f'Unable to import {msg_package}.msg')
-            return False
+    try:
+        imported_package = loaded_msg_packages.get(f'{msg_package}.{msg_class}', importlib.import_module(f'{msg_package}.{msg_class}'))
+    except ModuleNotFoundError:
+        logger.log_msg(f'Unable to import {msg_package}.{msg_class}')
+        return False
 
     # Ensure that the message package contains the message type as well
-    if not hasattr(loaded_msg_packages[msg_package], msg_name):
+    if not hasattr(imported_package, msg_name):
         logger.log_msg(f'Package {msg_package}/{msg_class} does not contain the interface type {msg_name}')
         return False
-    ros_msg_class = getattr(loaded_msg_packages[msg_package], msg_name)
+    ros_msg_class = getattr(imported_package, msg_name)
 
     # Extract the ROS message section of the proto message
     matched_fields = []
