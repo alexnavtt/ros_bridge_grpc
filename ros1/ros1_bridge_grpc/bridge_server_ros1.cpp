@@ -204,7 +204,7 @@ int main(int argc, char* argv[]) {
     ros::init(argc, argv, "bridge_server_ros1");
     ros::NodeHandle nh;
     registerAllTypes();
-    std::srand(std::time(0));
+    std::srand(std::hash<std::thread::id>{}(std::this_thread::get_id()));
     uid = std::to_string(std::rand());
     auto server = BridgeServerROS1(nh);
     ros::spin();

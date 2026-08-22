@@ -176,10 +176,6 @@ def add_client_generator_callback(file_metadata: FileMetadata, dest_path: str) -
             f'    public:\n'
             f'        grpc::ServerUnaryReactor* CallROSService (grpc::CallbackServerContext* context, const {msg_package}_srv_proto::{msg_type}RequestPacket* request, {msg_package}_srv_proto::{msg_type}ResponsePacket *response) {"{"}\n'
             f'            auto reactor = context->DefaultReactor();\n'
-            f'            if (context->client_metadata().count("{mode}")) {"{"}\n'
-            f'                reactor->Finish(grpc::Status::OK);\n'
-            f'                return reactor;\n'
-            f'            {"}"}\n'
             f'            if (clients_.count(request->service()) == 0) {"{"}\n'
             f'                reactor->Finish(grpc::Status(grpc::StatusCode::NOT_FOUND, "Received service request on unregistered service" + request->service()));\n'
             f'                return reactor;\n'
@@ -259,7 +255,6 @@ def add_service_generator_callback(file_metadata: FileMetadata, dest_path: str) 
             f'        auto client_context = std::make_shared<grpc::ClientContext>();\n'
             f'\n'
             f'        request_packet->set_service(service_name);\n'
-            f'        client_context->AddMetadata("{mode}", "");\n'
             f'\n'
         )
         

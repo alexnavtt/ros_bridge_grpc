@@ -222,7 +222,7 @@ std::string uid;
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
     registerAllTypes();
-    std::srand(std::time(0));
+    std::srand(std::hash<std::thread::id>{}(std::this_thread::get_id()));
     uid = std::to_string(std::rand());
     auto node = std::make_shared<BridgeServerROS2>("bridge_server_ros2");
     rclcpp::spin(node);
