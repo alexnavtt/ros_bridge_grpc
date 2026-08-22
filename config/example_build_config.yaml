@@ -2,21 +2,14 @@ ros1_distro: noetic
 ros2_distro: humble
 
 msg_packages:
-    std_msgs:
-        - String
-
-    tf2_msgs: 
-        - ALL
-
-    geometry_msgs:
-        - ALL
-
-    sensor_msgs:
-        - PointCloud2
-
-    moveit_msgs:
-        - JointLimits
-        - SolidPrimitive
+    std_msgs/msg: [String]
+    tf2_msgs/msg: [ALL]
+    geometry_msgs/msg: [ALL]
+    sensor_msgs/msg: [PointCloud2]
+    moveit_msgs/msg: [JointLimits, SolidPrimitive]
+    std_srvs/srv: [Trigger, SetBool]
+    my_package/msg: [MyMessage]
+    my_package/srv: [MyService]
 
 custom_packages:
     - {package_name: my_package,
@@ -33,6 +26,6 @@ custom_packages:
        ros2_path: "/local/path/to/my/non_rosdep/ros2/interface/package/dependency"}
 
 compatibility_overrides:
-    - "std_msgs/Header"             # Has seq field in ROS1 but not in ROS2
-    - "shape_msgs/SolidPrimitive"   # Has new enum constants added in ROS2
-    - "moveit_msgs/JointLimits"     # Has jerk related fields in ROS2 but not ROS1
+    - "std_msgs/msg/Header"             # Has seq field in ROS1 but not in ROS2
+    - "shape_msgs/msg/SolidPrimitive"   # Has new enum constants added in ROS2
+    - "moveit_msgs/msg/JointLimits"     # Has jerk related fields in ROS2 but not ROS1

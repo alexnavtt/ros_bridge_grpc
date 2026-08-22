@@ -1,28 +1,40 @@
+# === Messages ===
 registered_topics: 
-  - /my_string_topic
+  - /robot_description
   - /velodyne_points
   - /my_robot/joint_states
   - /tf
   - /tf_static
 
-/my_string_topic: 
-  type: std_msgs/String
+/robot_description: 
+  type: std_msgs/msg/String
+  transient_local: true
 
 /velodyne_points:
-  type: sensor_msgs/PointCloud2
+  type: sensor_msgs/msg/PointCloud2
   best_effort: true
 
 /my_robot/joint_states:
-  type: sensor_msgs/JointState
+  type: sensor_msgs/msg/JointState
   best_effort: true
 
 /tf:
-  type: tf2_msgs/TFMessage
+  type: tf2_msgs/msg/TFMessage
   
 /tf_static:
-  type: tf2_msgs/TFMessage
+  type: tf2_msgs/msg/TFMessage
   transient_local: true
 
+# === Services ===
+registered_services:
+  - /start_behavior_tree
+
+/start_behavior_tree:
+  type: std_srvs/srv/Trigger
+  ros1_role: client
+  ros2_role: service
+
+# === Networking ===
 ros1_server_address: localhost:50051
 ros2_server_address: localhost:50052
 
