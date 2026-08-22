@@ -1,7 +1,7 @@
 #include <ros/ros.h>
-#include <bridge_interface_example/add_two_nums.h>
+#include <bridge_interface_example/AddTwoNums.h>
 
-bool addNums(bridge_interface_example::add_two_nums::Request& req, bridge_interface_example::add_two_nums::Response& resp) {
+bool addNums(bridge_interface_example::AddTwoNums::Request& req, bridge_interface_example::AddTwoNums::Response& resp) {
     ROS_INFO("Get a request to add %.2f and %.2f", req.num1, req.num2);
     resp.result.operand_1 = req.num1;
     resp.result.operand_2 = req.num2;

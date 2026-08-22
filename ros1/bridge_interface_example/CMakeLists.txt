@@ -9,13 +9,13 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
     DIRECTORY msg
     FILES
-    sum.msg
+    Sum.msg
 )
 
 add_service_files(
     DIRECTORY srv
     FILES
-    add_two_nums.srv
+    AddTwoNums.srv
 )
 
 generate_messages()
