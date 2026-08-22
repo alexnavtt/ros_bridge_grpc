@@ -249,9 +249,10 @@ def main(code_gen_path: str, allowed_types: list[str]):
         all_allowed: bool = f'{msg_package}/msg/ALL' in allowed_types
         logger.log_msg(f'{msg_package}:')
         for msg_type in msg_types:
-            logger.log_msg(f'\t{msg_type}')            
             if not all_allowed and f'{msg_package}/{msg_type}' not in allowed_types:
+                logger.log_msg(f'\t{msg_type}')            
                 continue 
+            logger.log_msg(f'\t{msg_type} [BUILT]')            
             trimmed_msg_type = msg_type[4:]
             ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path, logger)
             built_packages.add(msg_package)
@@ -272,9 +273,10 @@ def main(code_gen_path: str, allowed_types: list[str]):
         all_allowed: bool = f'{msg_package}/srv/ALL' in allowed_types
         logger.log_msg(f'{msg_package}:')
         for srv_type in srv_types:
-            logger.log_msg(f'\t{srv_type}')            
             if not all_allowed and f'{msg_package}/{srv_type}' not in allowed_types:
+                logger.log_msg(f'\t{srv_type}')            
                 continue 
+            logger.log_msg(f'\t{srv_type} [BUILT]')            
             trimmed_srv_type = srv_type[4:]
             ros2_service_to_proto_srv(msg_package, trimmed_srv_type, proto_path, logger)
             built_packages.add(msg_package)
@@ -287,7 +289,8 @@ def main(code_gen_path: str, allowed_types: list[str]):
             tmp_message_dependencies = list(message_dependencies)
             message_dependencies = set[str]()
             for msg_type in tmp_message_dependencies:
-                msg_package, trimmed_msg_type = msg_type.split('/')
+                logger.log_msg(f'{msg_type}')            
+                msg_package, _, trimmed_msg_type, _ = msg_type.split('.')
                 ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path, logger)
 
 
