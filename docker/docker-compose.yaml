@@ -13,6 +13,7 @@ services:
     build:
       context: ../.
       dockerfile: docker/Dockerfile
+      network: host
       ssh: 
         - default
       args:
