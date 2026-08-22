@@ -108,7 +108,7 @@ services:
       - ${XAUTHORITY:-/dev/null}:/root/.Xauthority
       # other volumes...
       # - ../misc:/catkin_ws/misc       # optional local directory to mount files
-    profiles: [dev, all]
+    profiles: [dev]
 
   ros2_bridge_dev:
     extends: ros2_bridge_introspection
@@ -129,4 +129,4 @@ services:
       - ${XAUTHORITY:-/dev/null}:/root/.Xauthority
       # other volumes...
       # - ../misc:/catkin_ws/misc       # optional local directory to mount files
-    profiles: [dev, all]
+    profiles: [dev]
