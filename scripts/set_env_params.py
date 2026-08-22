@@ -4,12 +4,13 @@ import os
 import sys
 import yaml
 import subprocess
+from collections import defaultdict
 
 def main(config_file: str):
     with open(config_file, 'r') as file:
         config_dict = yaml.safe_load(file)
 
-    output_dict = dict()
+    output_dict = defaultdict(str)
 
     # Distro selection
     output_dict['ROS_BRIDGE_GRPC_ROS1_DISTRO'] = config_dict.get('ros1_distro', 'noetic')
@@ -23,19 +24,9 @@ def main(config_file: str):
         case ('lyrical'):
             output_dict['ROS_BRIDGE_GRPC_ROS2_UBUNTU'] = 'resolute'
 
-    # Message types
-    system_packages = ""
-    allowed_types = ""
-    for msg_package, message_types in config_dict.get('msg_packages', dict()).items():
-        system_packages += f'{msg_package[:str.find(msg_package, '/')]} '
-        for msg_type in message_types:
-            allowed_types += f'{msg_package}/{msg_type} '
-    output_dict['ROS_BRIDGE_GRPC_MESSAGE_PACKAGES'] = system_packages
-    output_dict['ROS_BRIDGE_GRPC_SYSTEM_PACKAGES'] = system_packages.replace('_', '-')
-    output_dict['ROS_BRIDGE_GRPC_ALLOWED_TYPES'] = allowed_types
-
     # Custom message types
     git_urls = {'ros1': '', 'ros2': ''}
+    custom_packages = []
     output_dict['ROS_BRIDGE_GRPC_CUSTOM_PACKAGES'] = ""
     for custom_package in config_dict.get('custom_packages', list[dict[str, str]]()):
         for version in ['ros1', 'ros2']:
@@ -54,12 +45,25 @@ def main(config_file: str):
             else:
                 continue
 
+        custom_packages.append(custom_package["package_name"])
         output_dict['ROS_BRIDGE_GRPC_CUSTOM_PACKAGES'] += f' {custom_package["package_name"]}'
         output_dict['ROS_BRIDGE_GRPC_MESSAGE_PACKAGES'] += f' {custom_package["package_name"]}'
-        output_dict['ROS_BRIDGE_GRPC_ALLOWED_TYPES'] += f' {custom_package["package_name"]}/ALL'
 
     output_dict['ROS_BRIDGE_GRPC_USER_ROS1_REPOS'] = git_urls['ros1']
     output_dict['ROS_BRIDGE_GRPC_USER_ROS2_REPOS'] = git_urls['ros2']
+
+    # Message types
+    system_packages = " "
+    allowed_types = " "
+    for package_id, message_types in config_dict.get('msg_packages', dict()).items():
+        msg_package, package_type = package_id.split('/')
+        if msg_package not in custom_packages:
+            system_packages += f'{msg_package} '
+        for msg_type in message_types:
+            allowed_types += f'{msg_package}/{package_type}/{msg_type} '
+    output_dict['ROS_BRIDGE_GRPC_MESSAGE_PACKAGES'] += system_packages
+    output_dict['ROS_BRIDGE_GRPC_SYSTEM_PACKAGES'] += system_packages.replace('_', '-')
+    output_dict['ROS_BRIDGE_GRPC_ALLOWED_TYPES'] += allowed_types
 
     # Compatibiltiy overrides
     output_dict['ROS_BRIDGE_GRPC_COMPAT_OVERRIDES'] = ' '.join(config_dict.get('compatibility_overrides', list[str]()))
