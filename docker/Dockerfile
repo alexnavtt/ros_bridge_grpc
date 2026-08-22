@@ -131,7 +131,7 @@ RUN --mount=type=ssh \
 # Build user packages
 ARG CUSTOM_PACKAGES=""
 WORKDIR /user_ws
-RUN rosdep update \
+RUN rosdep update --include-eol-distros \
     && apt update \
     && source /opt/ros/${ROS1_DISTRO}/setup.bash && \
     for pkg in ${CUSTOM_PACKAGES}; do \
