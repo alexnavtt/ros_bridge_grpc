@@ -1,4 +1,5 @@
 #include <thread>
+#include <random>
 #include <filesystem>
 #include <type_traits>
 #include <unordered_set>
@@ -215,9 +216,14 @@ void registerAllTypes() {
     #include <ros2/register_types.hpp>
 }
 
+// Global UID
+std::string uid;
+
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
     registerAllTypes();
+    std::srand(std::time(0));
+    uid = std::to_string(std::rand());
     auto node = std::make_shared<BridgeServerROS2>("bridge_server_ros2");
     rclcpp::spin(node);
 }

@@ -2,6 +2,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <random>
 #include <filesystem>
 #include <type_traits>
 #include <unordered_set>
@@ -196,10 +197,15 @@ void registerAllTypes() {
     #include <ros1/register_types.hpp>
 }
 
+// Global UID
+std::string uid;
+
 int main(int argc, char* argv[]) {
     ros::init(argc, argv, "bridge_server_ros1");
     ros::NodeHandle nh;
     registerAllTypes();
+    std::srand(std::time(0));
+    uid = std::to_string(std::rand());
     auto server = BridgeServerROS1(nh);
     ros::spin();
 }

@@ -67,3 +67,7 @@
         callback(future.get()); \
     }; client_->async_send_request(ros_request, c_func);}
 #endif
+
+// Custom UID for each bridge instance
+#include <string>
+extern std::string uid;
