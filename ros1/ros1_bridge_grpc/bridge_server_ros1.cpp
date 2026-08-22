@@ -103,7 +103,7 @@ public:
                 continue;
             }
 
-            if (!nh.getParam(service_name + "/role", role)) {
+            if (!nh.getParam(service_name + "/ros1_role", role)) {
                 ROS_ERROR("Missing required role for service %s. Valid options are \"service\" or \"client\"", service_name.c_str());
                 continue;
             }
@@ -128,9 +128,9 @@ public:
 
             ROS_INFO("Registering %s %s using type %s", role.c_str(), service_name.c_str(), type.c_str());
             registered_topics_and_types[service_name] = type;
-            if (role == "service") {
+            if (role == "client") {
                 services[service_name] = server_registration_callbacks.at(type)(service_name, nh, channel);
-            } else if (role == "client") {
+            } else if (role == "service") {
                 clients[service_name] = client_registration_callbacks.at(type)(service_name, nh, builder);
             }
         }

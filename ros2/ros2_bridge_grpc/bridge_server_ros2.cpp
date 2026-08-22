@@ -127,7 +127,7 @@ public:
             service_type_param.name = service_name + ".type";
             const std::string type = declare_parameter<std::string>(service_type_param.name, service_type_param);
 
-            service_role_param.name = service_name + ".role";
+            service_role_param.name = service_name + ".ros2_role";
             const std::string role = declare_parameter<std::string>(service_role_param.name, service_role_param);
             if (role != "service" && role != "client") {
                 RCLCPP_ERROR(get_logger(), "Unknown role passed for %s: \"%s\". Valid options are \"service\" and \"client\"", service_name.c_str(), role.c_str());
@@ -149,9 +149,9 @@ public:
 
             RCLCPP_INFO(get_logger(), "Registering %s %s using type %s", role.c_str(), service_name.c_str(), type.c_str());
             registered_topics_and_types[service_name] = type;
-            if (role == "service") {
+            if (role == "client") {
                 services[service_name] = server_registration_callbacks.at(type)(service_name, *this, channel);
-            } else if (role == "client") {
+            } else if (role == "service") {
                 clients[service_name] = client_registration_callbacks.at(type)(service_name, *this, builder);
             }
         }
