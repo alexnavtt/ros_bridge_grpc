@@ -3,6 +3,7 @@ services:
     build:
       context: ../.
       dockerfile: docker/grpc_base.Dockerfile
+      network: host
       target: grpc_base_ros2
       args:
         UBUNTU_DISTRO: $UBUNTU_DISTRO
