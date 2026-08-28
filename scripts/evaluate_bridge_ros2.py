@@ -1,17 +1,15 @@
 import os
-import re
-import sys
 import ast
-import rosmsg
-import rospkg
+import argparse
 import importlib
-from visualization_msgs.msg import Marker
 from pathlib import Path
 from typing import Dict, List
 from proto_schema_parser import Parser, Message, FieldCardinality
 from proto_schema_parser.ast import Comment, Field
 
 loaded_msg_packages = {}
+sideA: str # ROS2 distro
+sideB: str # Other ROS2 distro or ROS1 noetic
 
 compatible_types = {
     'float32': ['float', 'double'],
@@ -36,20 +34,20 @@ class Logger:
         self.file.write(f'{msg}\n')
         print(msg)
 
-def are_types_equivalent(ros1_msg_type: str, ros2_msg_type: str) -> bool:
-    if ros1_msg_type == ros2_msg_type:
+def are_types_equivalent(ros_msg_type: str, proto_msg_type: str) -> bool:
+    if ros_msg_type == proto_msg_type:
         return True
     
-    if ros1_msg_type in compatible_types:
-        return ros2_msg_type in compatible_types[ros1_msg_type]
+    if ros_msg_type in compatible_types:
+        return proto_msg_type in compatible_types[ros_msg_type]
     
     return False
 
 def check_constant_compatibility(message_obj, proto_comment: Comment, override: bool, logger: Logger) -> bool:
     """
     Checks whether a constant defined in a proto file has the same value as the 
-    consant in the ROS1 message. Constants are encoded into proto files as comments
-    of the form "// ConstantName = value;"
+    consant in the current ROS message version. Constants are encoded into proto files
+    as comments of the form "// ConstantName = value;"
     """
 
     # Ignore the line signalling that we are listing constants
@@ -57,13 +55,14 @@ def check_constant_compatibility(message_obj, proto_comment: Comment, override: 
     if text == 'Constants':
         return True
 
-    msg_package, msg_name = message_obj._type.split('/')
+    msg_package = message_obj.__module__.split('.')[0]
+    msg_name = message_obj.__name__
 
     # Make sure the constant is present in both definitions
     name, value = text.split(' = ')
     value = value[:-1] # remove semicolon
     if not hasattr(message_obj, name):
-        logger.log_msg(f'{msg_package}/{msg_name} has constant {name} in ROS2 but not in ROS1')
+        logger.log_msg(f'{msg_package}/{msg_name} has constant {name} in {sideA} but not in {sideB}')
         if override:
             logger.log_msg(f'Allowing via user override')
             return True
@@ -71,7 +70,7 @@ def check_constant_compatibility(message_obj, proto_comment: Comment, override: 
             return False
 
     # Make sure the constant value is the same in both definitions
-    ros1_constant_value = getattr(message_obj, name)
+    sideB_constant_value = getattr(message_obj, name)
     is_numeric = is_bytes = False
     equivalent_constant = True
 
@@ -79,7 +78,7 @@ def check_constant_compatibility(message_obj, proto_comment: Comment, override: 
     try:
         float_val = float(value)
         is_numeric = True
-        if float_val != ros1_constant_value:
+        if float_val != sideB_constant_value:
             equivalent_constant = False
     except ValueError:
         pass
@@ -88,17 +87,17 @@ def check_constant_compatibility(message_obj, proto_comment: Comment, override: 
     try:
         bytes_value = int.from_bytes(ast.literal_eval(value), byteorder='little')
         is_bytes = True
-        if not is_numeric and bytes_value != ros1_constant_value:
+        if not is_numeric and bytes_value != sideB_constant_value:
             equivalent_constant = False
     except (TypeError, ValueError, SyntaxError):
         pass
 
     # Value is not a 'bytes' - treat as a string constant
-    if (not is_numeric) and (not is_bytes) and (value != str(ros1_constant_value)):
+    if (not is_numeric) and (not is_bytes) and (value != str(sideB_constant_value)):
         equivalent_constant = False
         
     if not equivalent_constant:
-        logger.log_msg(f'{msg_package}/{msg_name} constant {name} has value {value} in ROS2 but value {ros1_constant_value} in ROS1')
+        logger.log_msg(f'{msg_package}/{msg_name} constant {name} has value {value} in {sideA} but value {sideB_constant_value} in {sideB}')
         return False
     
     return True
@@ -112,17 +111,18 @@ def check_packet_compatibility(message_obj, proto_field: Field, fields_to_delete
     """
     # TODO: Check repeated size
 
+    msg_package = message_obj.__module__.split('.')[0]
+    msg_name = message_obj.__name__
+
     # Automatically accept empty messages
     if proto_field.type == 'google.protobuf.Empty':
-        if message_obj.__slots__:
-            logger.log_msg(f'Message type {msg_package}/{msg_name} is empty in ROS2 but not in ROS1')
+        if message_obj.__slots__ and message_obj.__slots__[0] != '_check_fields':
+            logger.log_msg(f'Message type {msg_package}/{msg_name} is empty in {sideA} but not in {sideB}')
             return False
         return True
 
-    msg_package, msg_name = message_obj._type.split('/')
-
     if proto_field.name not in message_obj.__slots__ and proto_field.type != 'google.protobuf.Empty':
-        logger.log_msg(f'Message type {msg_package}/{msg_name} has field {proto_field.name} in ROS2 but not in ROS1')
+        logger.log_msg(f'Message type {msg_package}/{msg_name} has field {proto_field.name} in {sideA} but not in {sideB}')
         if override:
             fields_to_delete.add(proto_field.name)
             return True
@@ -130,21 +130,33 @@ def check_packet_compatibility(message_obj, proto_field: Field, fields_to_delete
             return False
 
     corresponding_field_idx = message_obj.__slots__.index(proto_field.name)
-    ros1_msg_type: str = message_obj._slot_types[corresponding_field_idx]
-    ros2_msg_type: str = proto_field.type.replace('_msg_proto.', '.').replace('.', '/')
+    sideA_msg_type: str = proto_field.type.replace('_msg_proto.', '.').replace('.', '/')
 
-    if ros1_msg_type.endswith(']'):
-        ros1_msg_type = ros1_msg_type[:ros1_msg_type.find('[')]
-        if proto_field.cardinality != FieldCardinality.REPEATED and proto_field.type != 'bytes':
-            logger.log_msg(f'{msg_package}/{proto_field.name} is an array in ROS1 but not in ROS2')
-            if override:
-                fields_to_delete.add(proto_field.name)
-                return True
-            else:
-                return False
+    if sideB == 'Noetic':
+        sideB_msg_type: str = message_obj._slot_types[corresponding_field_idx]
+    else:
+        sideB_msg_type: str = message_obj._fields_and_field_types[proto_field.name]
 
-    if not are_types_equivalent(ros1_msg_type, ros2_msg_type):
-        logger.log_msg(f'Message type {msg_package}/{proto_field.name} has type {ros2_msg_type} in ROS2 but type {ros1_msg_type} in ROS1')
+    # Check to see if it's a repeated message. There a couple different syntaxes for this
+    if sideB_msg_type.endswith(']'):
+        sideB_msg_type = sideB_msg_type[:sideB_msg_type.find('[')]
+        is_repeated = True
+    elif sideB_msg_type.startswith('sequence<'):
+        sideB_msg_type = sideB_msg_type.removeprefix('sequence<')[:-1]
+        is_repeated = True
+    else:
+        is_repeated = False
+
+    if is_repeated and proto_field.cardinality != FieldCardinality.REPEATED and proto_field.type != 'bytes':
+        logger.log_msg(f'{msg_package}/{proto_field.name} is an array in {sideB} but not in {sideA}')
+        if override:
+            fields_to_delete.add(proto_field.name)
+            return True
+        else:
+            return False
+
+    if not are_types_equivalent(sideB_msg_type, sideA_msg_type):
+        logger.log_msg(f'Message type {msg_package}/{proto_field.name} has type {sideA_msg_type} in {sideA} but type {sideB_msg_type} in {sideB}')
         if override:
             fields_to_delete.add(proto_field.name)
             return True
@@ -161,7 +173,8 @@ def write_corrected_field(message_obj, message_lines: list, file_handle, fields_
     types.
     """
     
-    msg_package, msg_name = message_obj._type.split('/')
+    msg_package = message_obj.__module__.split('.')[0]
+    msg_name = message_obj.__name__
 
     if fields_to_delete:
         logger.log_msg(f'{msg_package}/{msg_name} comptibility overriden by ignoring fields:')
@@ -266,9 +279,9 @@ def check_interface_compatibility(msg_package: str, msg_class: str, msg_name: st
             fields_to_delete = set()
 
             if msg_class == 'srv' and message_element.name.endswith('Request'):
-                ros_msg_obj = ros_msg_class._request_class
+                ros_msg_obj = ros_msg_class._request_class if sideB == 'Noetic' else ros_msg_class.Request
             elif msg_class == 'srv' and message_element.name.endswith('Response'):
-                ros_msg_obj = ros_msg_class._response_class
+                ros_msg_obj = ros_msg_class._response_class if sideB == 'Noetic' else ros_msg_class.Response
             elif msg_class == 'msg':
                 ros_msg_obj = ros_msg_class
 
@@ -287,10 +300,11 @@ def check_interface_compatibility(msg_package: str, msg_class: str, msg_name: st
                     logger.log_msg(f'Unexpected field type received: {type(proto_field)}')
                     return False
 
-            # Check for values that exist in ROS1 but not in ROS2
+            # Check for values that exist in sideB but not in sideA
             for elem in ros_msg_obj.__slots__:
+                if elem == '_check_fields': continue
                 if elem not in matched_fields and elem not in fields_to_delete:
-                    logger.log_msg(f'{msg_package}/{msg_name} has field {elem} in ROS1 but not in ROS2')
+                    logger.log_msg(f'{msg_package}/{msg_name} has field {elem} in {sideB} but not in {sideA}')
                     if is_overriden:
                         fields_to_delete.add(elem)
                     else:
@@ -310,7 +324,9 @@ def check_interface_compatibility(msg_package: str, msg_class: str, msg_name: st
 
     return True
 
-def get_all_known_message_types() -> Dict[str, List[str]]:
+def get_all_known_message_types_ros1() -> Dict[str, List[str]]:
+    import rospkg
+    import rosmsg
     rospack = rospkg.RosPack()
 
     # Create a lookup for all message types known in ROS1
@@ -331,19 +347,45 @@ def get_all_known_message_types() -> Dict[str, List[str]]:
 
     return message_lookup, service_lookup
 
-def main():
-    if len(sys.argv) < 2:
-        print("Missing required positional argument proto_path")
-        exit(1)
+def get_all_known_message_types_ros2() -> Dict[str, List[str]]:
+    import ros2interface.api
 
-    message_lookup, service_lookup = get_all_known_message_types()
+    # Create a lookup for all message types known in ROS2
+    message_lookup = ros2interface.api.get_message_interfaces()
+    for msg_types in message_lookup.values():
+        msg_types[:] = [msg_type.removeprefix('msg/') for msg_type in msg_types]
+
+    # Create a lookup for all service types known in ROS2
+    service_lookup = ros2interface.api.get_service_interfaces()
+    for srv_types in service_lookup.values():
+        srv_types[:] = [srv_type.removeprefix('srv/') for srv_type in srv_types]
+
+    return message_lookup, service_lookup
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--proto-path", type=str, required=True)
+    parser.add_argument("--sideA", type=str, required=True)
+    parser.add_argument("--sideB", type=str, required=True)
+
+    args = parser.parse_args()
+    proto_path = args.proto_path
+
+    # There are the ROS distros ('Noetic', 'Humble', 'Lyrical', etc.)
+    global sideA, sideB
+    sideA = args.sideA.capitalize()
+    sideB = args.sideB.capitalize()
+
+    if sideB == 'Noetic':
+        message_lookup, service_lookup = get_all_known_message_types_ros1()
+    else:
+        message_lookup, service_lookup = get_all_known_message_types_ros2()
     msg_overrides = os.getenv('COMPAT_OVERRIDES', '').split(' ')
 
     missed_packages = set()
-    proto_path = sys.argv[1]
     deleted_files = set()
 
-    logger = Logger(os.path.join(proto_path, 'log', 'ros1_bridge.txt'))
+    logger = Logger(os.path.join(proto_path, 'log', f'{sideB}_bridge.txt'))
     for file_path in Path(proto_path).rglob('*.proto'):
         filename = os.path.basename(file_path)
         msg_package, msg_class, msg_typename = os.path.splitext(filename)[0].split('.')
@@ -366,7 +408,7 @@ def main():
             continue
 
         if not check_interface_compatibility(msg_package, msg_class, msg_typename, str(file_path), msg_overrides, logger):
-            logger.log_msg(f'Message {msg_package}/{msg_typename} is not compatible between ROS1 and ROS2')
+            logger.log_msg(f'Message {msg_package}/{msg_typename} is not compatible between {sideA} and {sideB}')
             logger.log_msg(f'Deleting {file_path}')
             deleted_files.add(filename)
             os.remove(file_path)
@@ -378,7 +420,6 @@ def main():
             logger.log_msg(f'\t{missed_package}')
 
     # Do one more sweep of the files to remove import lines related to files that we have deleted
-    print(f'{deleted_files=}')
     for file_path in Path(proto_path).rglob('*.proto'):
         with open(file_path, 'r') as f:
             lines = f.readlines()
