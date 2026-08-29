@@ -13,23 +13,35 @@ def main(config_file: str):
     output_dict = defaultdict(str)
 
     # Distro selection
-    output_dict['ROS_BRIDGE_GRPC_ROS1_DISTRO'] = config_dict.get('ros1_distro', 'noetic')
-    output_dict['ROS_BRIDGE_GRPC_ROS2_DISTRO'] = config_dict.get('ros2_distro', 'humble')
+    output_dict['ROS_BRIDGE_GRPC_SIDE_A_DISTRO'] = config_dict.get('side_A_distro', 'humble')
+    output_dict['ROS_BRIDGE_GRPC_SIDE_B_DISTRO'] = config_dict.get('side_B_distro', 'noetic')
 
-    match output_dict['ROS_BRIDGE_GRPC_ROS2_DISTRO']:
+    match output_dict['ROS_BRIDGE_GRPC_SIDE_A_DISTRO']:
+        case ('noetic'):
+            raise RuntimeError(f'SideA must be a ROS2 distro. You gave {output_dict["ROS_BRIDGE_GRPC_SIDE_A_DISTRO"]}')
         case ('humble'|'iron'):
-            output_dict['ROS_BRIDGE_GRPC_ROS2_UBUNTU'] = 'jammy'
+            output_dict['ROS_BRIDGE_GRPC_SIDE_A_UBUNTU'] = 'jammy'
         case ('jazzy'|'kilted'):
-            output_dict['ROS_BRIDGE_GRPC_ROS2_UBUNTU'] = 'noble'
+            output_dict['ROS_BRIDGE_GRPC_SIDE_A_UBUNTU'] = 'noble'
         case ('lyrical'):
-            output_dict['ROS_BRIDGE_GRPC_ROS2_UBUNTU'] = 'resolute'
+            output_dict['ROS_BRIDGE_GRPC_SIDE_A_UBUNTU'] = 'resolute'
+
+    match output_dict['ROS_BRIDGE_GRPC_SIDE_B_DISTRO']:
+        case ('noetic'):
+            output_dict['ROS_BRIDGE_GRPC_SIDE_B_UBUNTU'] = 'focal'
+        case ('humble'|'iron'):
+            output_dict['ROS_BRIDGE_GRPC_SIDE_B_UBUNTU'] = 'jammy'
+        case ('jazzy'|'kilted'):
+            output_dict['ROS_BRIDGE_GRPC_SIDE_B_UBUNTU'] = 'noble'
+        case ('lyrical'):
+            output_dict['ROS_BRIDGE_GRPC_SIDE_B_UBUNTU'] = 'resolute'
 
     # Custom message types
-    git_urls = {'ros1': '', 'ros2': ''}
+    git_urls = {'side_A': '', 'side_B': ''}
     custom_packages = []
     output_dict['ROS_BRIDGE_GRPC_CUSTOM_PACKAGES'] = ""
     for custom_package in config_dict.get('custom_packages', list[dict[str, str]]()):
-        for version in ['ros1', 'ros2']:
+        for version in ['side_A', 'side_B']:
             if git_url := custom_package.get(f'{version}_url', None):
                 git_urls[version] += f'{git_url};'
 
@@ -49,8 +61,8 @@ def main(config_file: str):
         output_dict['ROS_BRIDGE_GRPC_CUSTOM_PACKAGES'] += f' {custom_package["package_name"]}'
         output_dict['ROS_BRIDGE_GRPC_MESSAGE_PACKAGES'] += f' {custom_package["package_name"]}'
 
-    output_dict['ROS_BRIDGE_GRPC_USER_ROS1_REPOS'] = git_urls['ros1']
-    output_dict['ROS_BRIDGE_GRPC_USER_ROS2_REPOS'] = git_urls['ros2']
+    output_dict['ROS_BRIDGE_GRPC_USER_SIDE_A_REPOS'] = git_urls['side_A']
+    output_dict['ROS_BRIDGE_GRPC_USER_SIDE_B_REPOS'] = git_urls['side_B']
 
     # Message types
     system_packages = " "

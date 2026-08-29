@@ -4,8 +4,8 @@
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Make sure these folders exist
-mkdir -p mapped/ros1
-mkdir -p mapped/ros2
+mkdir -p mapped/sideA
+mkdir -p mapped/sideB
 
 eval "$(python3 ../scripts/set_env_params.py $ROS_BRIDGE_BUILD_CONFIG)"
 
@@ -19,22 +19,22 @@ docker compose --profile all build
 
 # If the build was successful, copy the generated folder out
 if [ $? -eq 0 ]; then
-    docker compose up -d ros1_bridge_introspection
+    docker compose up -d side_b_introspection
     sudo rm -rf ./../generated
-    docker cp ros1_bridge_${ROS_BRIDGE_GRPC_ROS1_DISTRO}_introspection:/generated/ ./../generated
+    docker cp ros_bridge_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection:/generated/ ./../generated
     sudo chown -R $(whoami):$(whoami) ./../generated
-    docker compose down ros1_bridge_introspection
+    docker compose down side_b_introspection
 fi
 
-if [ ! -z "$(ls -A ../docker/mapped/ros1)" ]; then
-    for file in ../docker/mapped/ros1/*; do
+if [ ! -z "$(ls -A ../docker/mapped/side_B)" ]; then
+    for file in ../docker/mapped/side_B/*; do
         (sudo umount "$file") || true;
         rmdir $file
     done
 fi
 
-if [ ! -z "$(ls -A ../docker/mapped/ros2)" ]; then
-    for file in ../docker/mapped/ros2/*; do
+if [ ! -z "$(ls -A ../docker/mapped/side_A)" ]; then
+    for file in ../docker/mapped/side_A/*; do
         (sudo umount $file) || true;
         rmdir $file
     done
