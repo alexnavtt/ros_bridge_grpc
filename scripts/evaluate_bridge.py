@@ -19,9 +19,13 @@ compatible_types = {
     'int8': ['int32', 'bytes'],
     'int16': ['int32'],
     'byte': ['uint32', 'int32', 'bytes'],
+    'octet': ['uint32', 'int32', 'bytes'],
     'time': ['google/protobuf/Timestamp'],
     'duration': ['google/protobuf/Duration'],
-    'char': ['uint32', 'int32']
+    'char': ['uint32', 'int32'],
+    'boolean': ['bool'],
+    'builtin_interfaces/Time': ['google/protobuf/Timestamp'],
+    'builtin_interfaces/Duration': ['google/protobuf/Duration']
 }
 
 class Logger:
@@ -87,7 +91,7 @@ def check_constant_compatibility(message_obj, proto_comment: Comment, override: 
     try:
         bytes_value = int.from_bytes(ast.literal_eval(value), byteorder='little')
         is_bytes = True
-        if not is_numeric and bytes_value != sideB_constant_value:
+        if not is_numeric and bytes_value != sideB_constant_value and bytes_value != int.from_bytes(sideB_constant_value):
             equivalent_constant = False
     except (TypeError, ValueError, SyntaxError):
         pass
@@ -121,7 +125,8 @@ def check_packet_compatibility(message_obj, proto_field: Field, fields_to_delete
             return False
         return True
 
-    if proto_field.name not in message_obj.__slots__ and proto_field.type != 'google.protobuf.Empty':
+    slot_label = proto_field.name if sideB == 'Noetic' else f'_{proto_field.name}' # ROS2 slots have a leading underscore
+    if slot_label not in message_obj.__slots__ and proto_field.type != 'google.protobuf.Empty':
         logger.log_msg(f'Message type {msg_package}/{msg_name} has field {proto_field.name} in {sideA} but not in {sideB}')
         if override:
             fields_to_delete.add(proto_field.name)
@@ -129,20 +134,22 @@ def check_packet_compatibility(message_obj, proto_field: Field, fields_to_delete
         else:
             return False
 
-    corresponding_field_idx = message_obj.__slots__.index(proto_field.name)
     sideA_msg_type: str = proto_field.type.replace('_msg_proto.', '.').replace('.', '/')
 
     if sideB == 'Noetic':
+        corresponding_field_idx = message_obj.__slots__.index(proto_field.name)
         sideB_msg_type: str = message_obj._slot_types[corresponding_field_idx]
     else:
         sideB_msg_type: str = message_obj._fields_and_field_types[proto_field.name]
 
-    # Check to see if it's a repeated message. There a couple different syntaxes for this
+    # Check to see if it's a repeated message. There are a couple different syntaxes for this to acocunt for
     if sideB_msg_type.endswith(']'):
         sideB_msg_type = sideB_msg_type[:sideB_msg_type.find('[')]
         is_repeated = True
     elif sideB_msg_type.startswith('sequence<'):
         sideB_msg_type = sideB_msg_type.removeprefix('sequence<')[:-1]
+        if sideB_msg_type.find(',') >= 0:
+            sideB_msg_type = sideB_msg_type[:sideB_msg_type.find(',')]
         is_repeated = True
     else:
         is_repeated = False
@@ -179,6 +186,7 @@ def write_corrected_field(message_obj, message_lines: list, file_handle, fields_
     if fields_to_delete:
         logger.log_msg(f'{msg_package}/{msg_name} comptibility overriden by ignoring fields:')
         [logger.log_msg(f'\t{name}') for name in fields_to_delete]
+        logger.log_msg('\n')
 
     lines_to_keep = []
     for line in message_lines:
@@ -303,6 +311,7 @@ def check_interface_compatibility(msg_package: str, msg_class: str, msg_name: st
             # Check for values that exist in sideB but not in sideA
             for elem in ros_msg_obj.__slots__:
                 if elem == '_check_fields': continue
+                if sideB != 'Noetic': elem = elem[1:]
                 if elem not in matched_fields and elem not in fields_to_delete:
                     logger.log_msg(f'{msg_package}/{msg_name} has field {elem} in {sideB} but not in {sideA}')
                     if is_overriden:
@@ -386,6 +395,7 @@ def main():
     deleted_files = set()
 
     logger = Logger(os.path.join(proto_path, 'log', f'{sideB}_bridge.txt'))
+    logger.log_msg(f'{msg_overrides=}\n')
     for file_path in Path(proto_path).rglob('*.proto'):
         filename = os.path.basename(file_path)
         msg_package, msg_class, msg_typename = os.path.splitext(filename)[0].split('.')
@@ -402,14 +412,14 @@ def main():
         if msg_package not in lookup or msg_typename not in lookup[msg_package]:
             missed_packages.add(msg_typename)
             logger.log_msg(f'Cannot find matching type {msg_typename} in package {msg_package}')
-            logger.log_msg(f'Deleting {file_path}')
+            logger.log_msg(f'Deleting {file_path}\n')
             deleted_files.add(filename)
             os.remove(file_path)
             continue
 
         if not check_interface_compatibility(msg_package, msg_class, msg_typename, str(file_path), msg_overrides, logger):
             logger.log_msg(f'Message {msg_package}/{msg_typename} is not compatible between {sideA} and {sideB}')
-            logger.log_msg(f'Deleting {file_path}')
+            logger.log_msg(f'Deleting {file_path}\n')
             deleted_files.add(filename)
             os.remove(file_path)
             continue
@@ -419,23 +429,58 @@ def main():
         for missed_package in sorted(missed_packages):
             logger.log_msg(f'\t{missed_package}')
 
-    # Do one more sweep of the files to remove import lines related to files that we have deleted
-    for file_path in Path(proto_path).rglob('*.proto'):
-        with open(file_path, 'r') as f:
-            lines = f.readlines()
-        header, messages, services = split_proto_text(lines)
+    # Do one more sweep of the files to remove files or imports related to files that we have deleted
+    files_deleted = 1
+    while files_deleted > 0:
+        files_to_delete = []
+        for file_path in Path(proto_path).rglob('*.proto'):
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+            header, messages, services = split_proto_text(lines)
 
-        with open(file_path, 'w') as f:
-            line: str
-            for line in header:
-                if line.startswith('import'):
+            with open(file_path, 'w') as f:
+                line: str
+                invalidated_references = []
+                for line in header:
+                    # We're only filtering imports
+                    if not line.startswith('import'): 
+                        f.write(line)
+                        continue
+
                     import_filename = line[len('import "'):-3]
                     if import_filename in deleted_files:
-                        continue
-                f.write(line)
-            for message in messages:
-                f.writelines(message)
-            f.writelines(services)
+                        # File names have structure msg_package.msg.MsgName.proto
+                        msg_name = file_path.name.removesuffix('.proto').replace('.', '/')
+                        deleted_msg_name = import_filename.removesuffix('.proto').replace('.', '/')
+                        logger.log_msg(f'{msg_name} relies on a deleted file {import_filename}')
+                        if msg_name in msg_overrides:
+                            logger.log_msg(f'Overriding by removing reference to {import_filename}\n')
+                            invalidated_references.append(deleted_msg_name)
+                            continue
+                        else:
+                            logger.log_msg(f'Deleting {file_path}\n')
+                            files_to_delete.append(file_path)
+                            break
+                    f.write(line)
+
+                for message in messages:
+                    for line in message:
+                        if line.startswith('\t') and line.count('.') and not line.count('google.protobuf.'):
+                            # Message lines have structure \t [repeated] msg_package_msg_proto.MsgName field = x;
+                            msg_package_part, msg_name_part = line.strip().split('.')
+                            msg_package = msg_package_part.removeprefix('repeated ').removesuffix('_msg_proto')
+                            msg_name = msg_name_part.split(' ')[0]
+                            if f'{msg_package}/msg/{msg_name}' in invalidated_references:
+                                continue
+                        f.write(line)
+
+                f.writelines(services)
+
+        files_deleted = 0
+        for file_path in files_to_delete:
+            deleted_files.add(os.path.basename(file_path))
+            os.remove(file_path)
+            files_deleted += 1
 
 if __name__ == "__main__":
     main()

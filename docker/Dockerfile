@@ -94,6 +94,7 @@ ARG SIDE_B_DISTRO
 
 SHELL ["/bin/bash", "-lc"]
 ARG DEBIAN_FRONTEND=noninteractive
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 # Fix ROS1 apt key issues
 RUN if [ "${SIDE_B_DISTRO}" == "noetic" ]; then \
@@ -152,7 +153,7 @@ RUN rosdep update --include-eol-distros \
 
 RUN source /opt/ros/${SIDE_B_DISTRO}/setup.bash \
     && (catkin build ${CUSTOM_PACKAGES} || colcon build --packages-up-to ${CUSTOM_PACKAGES}) \ 
-    && echo "if [ -f '/user_ws/devel/setup.bash' ]; then source /user_ws/devel/setup.bash; fi" >> ~/.profile
+    && echo "source /user_ws/devel/setup.bash || source /user_ws/install/setup.bash || true" >> ~/.profile
 
 # Copy the generated protoc and gRPC libraries
 COPY --from=grpc_bridge_base:focal /install /install
@@ -239,14 +240,14 @@ COPY common /common
 ARG MESSAGE_PACKAGES
 ENV MESSAGE_PACKAGES=${MESSAGE_PACKAGES}
 RUN source /opt/ros/${SIDE_B_DISTRO}/setup.bash \
-    && source ~/.profile \
-    && CMAKE_PREFIX_PATH="/install:$CMAKE_PREFIX_PATH" && \
+    && source ~/.profile && \
     if [ "${SIDE_B_DISTRO}" == "noetic" ]; then \
         cd /catkin_ws \
-        && catkin build --cmake-args -DCMAKE_BUILD_TYPE=Release \
+        && CMAKE_PREFIX_PATH="/install:$CMAKE_PREFIX_PATH" catkin build --cmake-args -DCMAKE_BUILD_TYPE=Release \
         && echo "source /catkin_ws/devel/setup.bash" >> ~/.profile; \
     else \
-        colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release \
+        source /user_ws/install/setup.bash; \
+        CMAKE_PREFIX_PATH="/install:$CMAKE_PREFIX_PATH" colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release \
         && echo "source /colcon_ws/install/setup.bash" >> ~/.profile; \
     fi
 

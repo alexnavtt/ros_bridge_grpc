@@ -67,9 +67,9 @@ services:
   side_a_introspection:
     extends: ros_bridge
     image: ros_bridge:$ROS_BRIDGE_GRPC_SIDE_A_DISTRO
-    container_name: ros2_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_introspection
+    container_name: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_introspection
     build:
-      target: side_a_generated
+      target: side_a_ros_base
     volumes:
       - ${CYCLONEDDS_URI:-/dev/null}:/cyclonedds_uri.xml
     environment:
