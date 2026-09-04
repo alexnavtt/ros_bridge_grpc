@@ -3,7 +3,7 @@ services:
     build:
       context: ../.
       dockerfile: docker/grpc_base.Dockerfile
-      target: grpc_base_ros2
+      target: grpc_base
       args:
         UBUNTU_DISTRO: $UBUNTU_DISTRO
     image: grpc_bridge_base:${UBUNTU_DISTRO:-jammy}
@@ -28,6 +28,7 @@ services:
         ALLOWED_TYPES: $ROS_BRIDGE_GRPC_ALLOWED_TYPES
         MESSAGE_PACKAGES: $ROS_BRIDGE_GRPC_MESSAGE_PACKAGES
         COMPAT_OVERRIDES: $ROS_BRIDGE_GRPC_COMPAT_OVERRIDES
+        BRIDGE_TYPE: $ROS_BRIDGE_GRPC_BRIDGE_TYPE
     image: ros_bridge_grpc
     container_name: ros_bridge_grpc_container
     tty: true
@@ -43,7 +44,7 @@ services:
   side_b_introspection:
     extends: ros_bridge
     image: ros_bridge:$ROS_BRIDGE_GRPC_SIDE_B_DISTRO
-    container_name: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection
+    container_name: ros_bridge_b_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection
     build:
       target: side_b_ros_base
     volumes:
@@ -58,7 +59,7 @@ services:
 
   side_b_bridge:
     extends: side_b_introspection
-    container_name: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}
+    container_name: ros_bridge_b_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}
     build:
       target: side_b_build
     entrypoint: /entrypoints/run_ros_bridge.bash
@@ -67,7 +68,7 @@ services:
   side_a_introspection:
     extends: ros_bridge
     image: ros_bridge:$ROS_BRIDGE_GRPC_SIDE_A_DISTRO
-    container_name: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_introspection
+    container_name: ros_bridge_a_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_introspection
     build:
       target: side_a_ros_base
     volumes:
@@ -80,7 +81,7 @@ services:
 
   side_a_bridge:
     extends: side_a_introspection
-    container_name: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}
+    container_name: ros_bridge_a_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}
     build:
       target: side_a_build
     entrypoint: /entrypoints/run_ros2_bridge.bash

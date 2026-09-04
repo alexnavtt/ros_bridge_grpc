@@ -15,6 +15,7 @@ def main(config_file: str):
     # Distro selection
     output_dict['ROS_BRIDGE_GRPC_SIDE_A_DISTRO'] = config_dict.get('side_A_distro', 'humble')
     output_dict['ROS_BRIDGE_GRPC_SIDE_B_DISTRO'] = config_dict.get('side_B_distro', 'noetic')
+    output_dict['ROS_BRIDGE_GRPC_BRIDGE_TYPE'] = 'regular' if output_dict['ROS_BRIDGE_GRPC_SIDE_A_DISTRO'] != output_dict['ROS_BRIDGE_GRPC_SIDE_B_DISTRO'] else 'mirrored'
 
     match output_dict['ROS_BRIDGE_GRPC_SIDE_A_DISTRO']:
         case ('noetic'):

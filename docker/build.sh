@@ -24,18 +24,26 @@ if [ $? -eq 0 ]; then
     docker compose down side_a_introspection
 fi
 
-docker compose build side_b_introspection
+if [ "$ROS_BRIDGE_GRPC_SIDE_A_DISTRO" != "$ROS_BRIDGE_GRPC_SIDE_B_DISTRO" ]; then
+    docker compose build side_b_introspection
 
-# If the build was successful, copy the generated folder out
-if [ $? -eq 0 ]; then
-    docker compose up -d side_b_introspection
-    docker cp ros_bridge_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection:/generated/ ./../generated/proto_B
-    sudo chown -R $(whoami):$(whoami) ./../generated
-    docker compose down side_b_introspection
+    # If the build was successful, copy the generated folder out
+    if [ $? -eq 0 ]; then
+        docker compose up -d side_b_introspection
+        docker cp ros_bridge_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection:/generated/ ./../generated/proto_B
+        sudo chown -R $(whoami):$(whoami) ./../generated
+        docker compose down side_b_introspection
+    fi
 fi
 
 # Finish the build
-docker compose --profile all build
+printf "Building bridge for %s" $ROS_BRIDGE_GRPC_SIDE_A_DISTRO
+docker compose build side_a_bridge
+
+if [ "$ROS_BRIDGE_GRPC_SIDE_A_DISTRO" != "$ROS_BRIDGE_GRPC_SIDE_B_DISTRO" ]; then
+    printf "Building bridge for %s" $ROS_BRIDGE_GRPC_SIDE_B_DISTRO
+    docker compose build side_b_bridge
+fi
 
 if [ ! -z "$(ls -A ../docker/mapped/side_B)" ]; then
     for file in ../docker/mapped/side_B/*; do

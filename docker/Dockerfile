@@ -3,6 +3,7 @@ ARG SIDE_A_DISTRO=humble
 ARG SIDE_B_DISTRO=noetic
 ARG SIDE_A_UBNUTU=jammy
 ARG SIDE_B_UBUNTU=focal
+ARG BRIDGE_TYPE="regular"
 
 # -------------------------------------------------------------------------------------------------
 # Base Images
@@ -177,11 +178,14 @@ RUN source /opt/ros/${SIDE_B_DISTRO}/setup.bash \
 # ROS2 Generate Stage 2
 # -------------------------------------------------------------------------------------------------
 
-FROM side_a_ros_base AS side_a_generated
+FROM side_a_ros_base AS side_a_generated_mirrored
+FROM side_a_ros_base AS side_a_generated_regular
 
 # Copy the updated generated library code after filtering
 RUN rm -rf /generated
 COPY --from=side_b_ros_base /generated /generated
+
+FROM side_a_generated_${BRIDGE_TYPE} AS side_a_generated
 
 # Run protoc to generate the base level proto_cpp and gRPC code
 RUN mkdir -p /generated/proto_cpp \
@@ -217,7 +221,8 @@ RUN source /opt/ros/${SIDE_A_DISTRO}/setup.bash \
     && echo "source /colcon_ws/install/setup.bash" >> ~/.profile
 
 COPY docker/entrypoints/run_ros2_bridge.bash /entrypoints/run_ros2_bridge.bash
-RUN chmod +x /entrypoints/run_ros2_bridge.bash
+COPY docker/entrypoints/run_ros2_bridge.bash /entrypoints/run_ros_bridge.bash
+RUN chmod +x /entrypoints/run_ros2_bridge.bash && chmod +x /entrypoints/run_ros_bridge.bash
 
 # -------------------------------------------------------------------------------------------------
 # ROS1 Build
