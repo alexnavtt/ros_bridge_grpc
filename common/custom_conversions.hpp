@@ -55,3 +55,22 @@ static inline void ros2grpc(const std::vector<signed char>& ros_msg, std::string
 static inline void grpc2ros(const std::string& proto_msg, std::vector<signed char>& ros_msg) {
     ros_msg.assign(proto_msg.begin(), proto_msg.end());
 }
+
+#if __has_include(<rosidl_buffer/buffer.hpp>)
+#include <rosidl_buffer/buffer.hpp>
+static inline void ros2grpc(const rosidl::Buffer<signed char>& ros_msg, std::string& proto_msg) {
+    proto_msg.assign(ros_msg.begin(), ros_msg.end());
+}
+
+static inline void grpc2ros(const std::string& proto_msg, rosidl::Buffer<signed char>& ros_msg) {
+    ros_msg.assign(proto_msg.begin(), proto_msg.end());
+}
+
+static inline void ros2grpc(const rosidl::Buffer<unsigned char>& ros_msg, std::string& proto_msg) {
+    proto_msg.assign(ros_msg.begin(), ros_msg.end());
+}
+
+static inline void grpc2ros(const std::string& proto_msg, rosidl::Buffer<unsigned char>& ros_msg) {
+    ros_msg.assign(proto_msg.begin(), proto_msg.end());
+}
+#endif

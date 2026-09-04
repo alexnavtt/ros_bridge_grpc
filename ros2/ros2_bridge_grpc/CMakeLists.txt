@@ -12,6 +12,7 @@ separate_arguments(PACKAGE_LIST UNIX_COMMAND "${PACKAGE_LIST_STRING}")
 message("PACKAGE LIST = ${PACKAGE_LIST}")
 foreach(pkg IN LISTS PACKAGE_LIST)
     find_package(${pkg} REQUIRED)
+    list(APPEND LIBRARY_LIST "${pkg}::${pkg}")
 endforeach()
 
 include_directories(
@@ -34,12 +35,15 @@ target_link_libraries(conversions
 )
 
 add_executable(bridge_server_ros2 bridge_server_ros2.cpp)
-ament_target_dependencies(bridge_server_ros2 rclcpp)
-target_link_libraries(bridge_server_ros2 gRPC::grpc++ conversions)
+target_link_libraries(bridge_server_ros2 
+    rclcpp::rclcpp
+    gRPC::grpc++ 
+    conversions
+)
 
-ament_target_dependencies(conversions
-    rclcpp
-    ${PACKAGE_LIST}
+target_link_libraries(conversions
+    rclcpp::rclcpp
+    ${LIBRARY_LIST}
 )
 
 install(TARGETS
