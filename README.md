@@ -117,8 +117,7 @@ Navigate to the `docker` folder of this repo, and run the following commands:
 
 ```bash
 export ROS_BRIDGE_RUNTIME_CONFIG=<path/to/your/runtime/config>
-export ROS_BRIDGE_GRPC_SIDE_A_DISTRO=<a_ros2_distro>
-export ROS_BRIDGE_GRPC_SIDE_B_DISTRO=<a_ros1_or_ros2_distro>
+source runtime.sh
 docker compose --profile runtime up
 ```
 

@@ -5,7 +5,7 @@ msg_packages:
    std_msgs/msg: [String]
    tf2_msgs/msg: [ALL]
    geometry_msgs/msg: [PoseWithCovarianceStamped]
-   sensor_msgs/msg: [PointCloud2, Image, CameraInfo]
+   sensor_msgs/msg: [PointCloud2, Image, CameraInfo, JointState]
    moveit_msgs/msg: [JointLimits, SolidPrimitive]
    std_srvs/srv: [Trigger, SetBool]
    bridge_interface_example/srv: [ALL]
