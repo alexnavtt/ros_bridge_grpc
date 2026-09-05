@@ -40,14 +40,6 @@ services:
       - ./fastrtps_default_profile.xml:/root/fastrtps_default_profile.xml
       - ${FASTDDS_DEFAULT_PROFILES_FILE:-/dev/null}:${FASTDDS_DEFAULT_PROFILES_FILE:-/dev/null}
       - ${FASTRTPS_DEFAULT_PROFILES_FILE:-/dev/null}:${FASTRTPS_DEFAULT_PROFILES_FILE:-/dev/null}
-    environment:
-      - ROS_MASTER_URI
-      - ROS_HOSTNAME
-      - ROS_DOMAIN_ID
-      - RMW_IMPLEMENTATION
-      - CYCLONEDDS_URI=/cyclonedds_uri.xml
-      - FASTDDS_DEFAULT_PROFILES_FILE=${FASTDDS_DEFAULT_PROFILES_FILE:-/root/fastrtps_default_profile.xml}
-      - FASTRTPS_DEFAULT_PROFILES_FILE=${FASTRTPS_DEFAULT_PROFILES_FILE:-/root/fastrtps_default_profile.xml}
     network_mode: host
     pid: host
     ipc: host
@@ -59,6 +51,8 @@ services:
     container_name: ros_bridge_b_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection
     build:
       target: side_b_ros_base
+    env_file:
+      - ./../config/side_b.env
     profiles: [dev]
 
   side_b_bridge:
@@ -75,6 +69,8 @@ services:
     container_name: ros_bridge_a_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_introspection
     build:
       target: side_a_ros_base
+    env_file:
+      - ./../config/side_a.env
     profiles: [dev]
 
   side_a_bridge:
