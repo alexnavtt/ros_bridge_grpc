@@ -32,28 +32,31 @@ public:
         std::vector<std::string> registered_services_param = nh.param("registered_services", std::vector<std::string>{});
 
         // Retrieve the channel on which to create the grpc server
-        const std::string ros2_server_address_default = "localhost:50051";
-        std::string ros2_server_address = nh.param("ros2_server_address", ros2_server_address_default);
-
-        const std::string ros1_server_address_default = "localhost:50052";
-        std::string ros1_server_address = nh.param("ros1_server_address", ros1_server_address_default);
+        const std::string local_server_address_default = "localhost:50052";
+        std::string local_server_address = nh.param("side_b_server_address", local_server_address_default);
+        
+        const std::string remote_server_address_default = "localhost:50051";
+        std::string remote_server_address = nh.param("side_a_server_address", remote_server_address_default);
 
         // If the server address is a socket, delete it if it exists and append the URI spec
-        if (std::filesystem::path(ros1_server_address).extension() == ".sock") {
-            if (std::filesystem::exists(ros1_server_address)) {
-                std::filesystem::remove(ros1_server_address);
+        if (std::filesystem::path(local_server_address).extension() == ".sock") {
+            if (std::filesystem::exists(local_server_address)) {
+                std::filesystem::remove(local_server_address);
             }
-            ros1_server_address = "unix://" + ros1_server_address;
+            local_server_address = "unix://" + local_server_address;
         }
 
-        if (std::filesystem::path(ros2_server_address).extension() == ".sock") {
-            ros2_server_address = "unix://" + ros2_server_address;
+        if (std::filesystem::path(remote_server_address).extension() == ".sock") {
+            remote_server_address = "unix://" + remote_server_address;
         }
+
+        // Sleep to allow the bridge bringup print statements to separate better
+        std::this_thread::sleep_for(std::chrono::seconds(1));
 
         // Create a gRPC service builder to allow all types to register their publisher callbacks with
-        ROS_INFO("Creating gRPC server on %s", ros1_server_address.c_str());
+        ROS_INFO("Creating gRPC server on %s", local_server_address.c_str());
         grpc::ServerBuilder builder;
-        builder.AddListeningPort(ros1_server_address, grpc::InsecureServerCredentials());
+        builder.AddListeningPort(local_server_address, grpc::InsecureServerCredentials());
 
         // Allow larger message size 8MB (default is 4MB)
         builder.SetMaxReceiveMessageSize(8 * 1024 * 1024);
@@ -63,8 +66,8 @@ public:
         ch_args.SetMaxSendMessageSize(8 * 1024 * 1024);
 
         // Create a gRPC channel to allow all types to register their subscription callbacks with
-        ROS_INFO("Creating gRPC client on %s", ros2_server_address.c_str());
-        std::shared_ptr<grpc::Channel> channel = grpc::CreateCustomChannel(ros2_server_address, grpc::InsecureChannelCredentials(), ch_args);
+        ROS_INFO("Creating gRPC client on %s", remote_server_address.c_str());
+        std::shared_ptr<grpc::Channel> channel = grpc::CreateCustomChannel(remote_server_address, grpc::InsecureChannelCredentials(), ch_args);
 
         // For each of them, register the corresponding communication elements
         std::string type;
@@ -105,7 +108,7 @@ public:
                 continue;
             }
 
-            if (!nh.getParam(service_name + "/ros1_role", role)) {
+            if (!nh.getParam(service_name + "/side_b_role", role)) {
                 ROS_ERROR("Missing required role for service %s. Valid options are \"service\" or \"client\"", service_name.c_str());
                 continue;
             }
@@ -211,7 +214,8 @@ int main(int argc, char* argv[]) {
 
     const char* ros_distro_str = std::getenv("ROS_DISTRO");
     const char* ros_ip_string = std::getenv("ROS_IP");
+    const char* ros_hostname_string = std::getenv("ROS_HOSTNAME");
     const char* ros_master_uri_string = std::getenv("ROS_MASTER_URI");
-    ROS_INFO("Using\n\tROS_DISTRO: %s\n\tROS_IP: %s\n\tROS_MASTER_URI: %s\n\tUID: %s", ros_distro_str, ros_ip_string, ros_master_uri_string, uid.c_str());
+    ROS_INFO("Using\n\tROS_DISTRO: %s\n\tROS_IP: %s\n\tROS_HOSTNAME: %s\n\tROS_MASTER_URI: %s\n\tUID: %s", ros_distro_str, ros_ip_string, ros_hostname_string, ros_master_uri_string, uid.c_str());
     ros::spin();
 }
