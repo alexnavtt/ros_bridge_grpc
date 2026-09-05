@@ -8,10 +8,13 @@ eval "$(python3 ../scripts/set_env_params.py $ROS_BRIDGE_BUILD_CONFIG)"
 if [ -z "$(docker image ls | grep grpc_bridge_base:${ROS_BRIDGE_GRPC_SIDE_A_UBUNTU})" ]; then
     UBUNTU_DISTRO=$ROS_BRIDGE_GRPC_SIDE_A_UBUNTU docker compose build grpc_base
 fi
+
+if [ $? -ne 0 ]; then exit 1; fi
 if [ -z "$(docker image ls | grep grpc_bridge_base:${ROS_BRIDGE_GRPC_SIDE_B_UBUNTU})" ]; then
     UBUNTU_DISTRO=$ROS_BRIDGE_GRPC_SIDE_B_UBUNTU docker compose build grpc_base
 fi
 
+if [ $? -ne 0 ]; then exit 1; fi
 docker compose build side_a_introspection
 
 # If the build was successful, copy the generated proto definitions out
