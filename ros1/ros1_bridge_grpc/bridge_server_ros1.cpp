@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 #include <random>
+#include <cstdlib>
 #include <filesystem>
 #include <type_traits>
 #include <unordered_set>
@@ -207,5 +208,10 @@ int main(int argc, char* argv[]) {
     std::srand(std::hash<std::thread::id>{}(std::this_thread::get_id()));
     uid = std::to_string(std::rand());
     auto server = BridgeServerROS1(nh);
+
+    const char* ros_distro_str = std::getenv("ROS_DISTRO");
+    const char* ros_ip_string = std::getenv("ROS_IP");
+    const char* ros_master_uri_string = std::getenv("ROS_MASTER_URI");
+    ROS_INFO("Using\n\tROS_DISTRO: %s\n\tROS_IP: %s\n\tROS_MASTER_URI: %s\n\tUID: %s", ros_distro_str, ros_ip_string, ros_master_uri_string, uid.c_str());
     ros::spin();
 }

@@ -1,5 +1,6 @@
 #include <thread>
 #include <random>
+#include <cstdlib>
 #include <filesystem>
 #include <type_traits>
 #include <unordered_set>
@@ -225,5 +226,10 @@ int main(int argc, char* argv[]) {
     std::srand(std::hash<std::thread::id>{}(std::this_thread::get_id()));
     uid = std::to_string(std::rand());
     auto node = std::make_shared<BridgeServerROS2>("bridge_server_ros2");
+
+    const char* ros_distro_str = std::getenv("ROS_DISTRO");
+    const char* domain_id_str = std::getenv("ROS_DOMAIN_ID");
+    const char* implementation_str = std::getenv("RMW_IMPLEMENTATION");
+    RCLCPP_INFO(node->get_logger(), "Using\n\tROS_DISTRO: %s\n\tROS_DOMAIN_ID: %s\n\tRMW_IMPLEMENTATION: %s\n\tUID: %s", ros_distro_str, domain_id_str, implementation_str, uid.c_str());
     rclcpp::spin(node);
 }
