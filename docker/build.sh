@@ -19,7 +19,7 @@ if [ $? -eq 0 ]; then
     docker compose up -d side_a_introspection
     sudo rm -rf ./../generated
     mkdir ./../generated
-    docker cp ros_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_introspection:/generated/proto ./../generated/proto_A
+    docker cp ros_bridge_a_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_introspection:/generated/proto ./../generated/proto_A
     sudo chown -R $(whoami):$(whoami) ./../generated
     docker compose down side_a_introspection
 fi
@@ -30,7 +30,7 @@ if [ "$ROS_BRIDGE_GRPC_SIDE_A_DISTRO" != "$ROS_BRIDGE_GRPC_SIDE_B_DISTRO" ]; the
     # If the build was successful, copy the generated folder out
     if [ $? -eq 0 ]; then
         docker compose up -d side_b_introspection
-        docker cp ros_bridge_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection:/generated/ ./../generated/proto_B
+        docker cp ros_bridge_b_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection:/generated/ ./../generated/proto_B
         sudo chown -R $(whoami):$(whoami) ./../generated
         docker compose down side_b_introspection
     fi
