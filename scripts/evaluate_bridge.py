@@ -147,7 +147,7 @@ def check_packet_compatibility(message_obj, proto_field: Field, fields_to_delete
         sideB_msg_type = sideB_msg_type[:sideB_msg_type.find('[')]
         is_repeated = True
     elif sideB_msg_type.startswith('sequence<'):
-        sideB_msg_type = sideB_msg_type.removeprefix('sequence<')[:-1]
+        sideB_msg_type = sideB_msg_type[len('sequence<'):-1]
         if sideB_msg_type.find(',') >= 0:
             sideB_msg_type = sideB_msg_type[:sideB_msg_type.find(',')]
         is_repeated = True
@@ -450,8 +450,8 @@ def main():
                     import_filename = line[len('import "'):-3]
                     if import_filename in deleted_files:
                         # File names have structure msg_package.msg.MsgName.proto
-                        msg_name = file_path.name.removesuffix('.proto').replace('.', '/')
-                        deleted_msg_name = import_filename.removesuffix('.proto').replace('.', '/')
+                        msg_name = file_path.name[:-6].replace('.', '/') # can't use removesuffix for ROS1 compatibility
+                        deleted_msg_name = import_filename[:-6].replace('.', '/')
                         logger.log_msg(f'{msg_name} relies on a deleted file {import_filename}')
                         if msg_name in msg_overrides:
                             logger.log_msg(f'Overriding by removing reference to {import_filename}\n')
@@ -468,7 +468,9 @@ def main():
                         if line.startswith('\t') and line.count('.') and not line.count('google.protobuf.'):
                             # Message lines have structure \t [repeated] msg_package_msg_proto.MsgName field = x;
                             msg_package_part, msg_name_part = line.strip().split('.')
-                            msg_package = msg_package_part.removeprefix('repeated ').removesuffix('_msg_proto')
+                            if msg_package_part.startswith('repeated '):
+                                msg_package_part = msg_package_part[len('repeated'):]
+                            msg_package = msg_package_part[:-10] # remove _msg_proto
                             msg_name = msg_name_part.split(' ')[0]
                             if f'{msg_package}/msg/{msg_name}' in invalidated_references:
                                 continue
