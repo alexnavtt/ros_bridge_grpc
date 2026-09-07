@@ -44,7 +44,7 @@ printf "Building bridge for %s" $ROS_BRIDGE_GRPC_SIDE_A_DISTRO
 docker compose build side_a_bridge
 
 if [ $? -eq 0 ]; then
-    docker compose up -d side_a_bridge_dev &
+    docker compose up -d side_a_bridge_dev
     docker cp side_a_bridge_dev:/generated/ ./../generated/final
     sudo chown -R $(whoami):$(whoami) ./../generated
     docker compose down side_a_bridge_dev
@@ -57,14 +57,16 @@ fi
 
 if [ ! -z "$(ls -A ../docker/mapped/side_B)" ]; then
     for file in ../docker/mapped/side_B/*; do
-        (sudo umount "$file") || true;
+        sudo umount -f "$file"
         rmdir $file
     done
 fi
 
 if [ ! -z "$(ls -A ../docker/mapped/side_A)" ]; then
     for file in ../docker/mapped/side_A/*; do
-        (sudo umount $file) || true;
+        sudo umount -f $file
         rmdir $file
     done
 fi
+
+echo "ROS Bridge Build Complete"
