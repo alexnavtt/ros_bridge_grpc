@@ -1,7 +1,7 @@
 # Default args just to make Dockerfile linters happy
 ARG SIDE_A_DISTRO=humble
 ARG SIDE_B_DISTRO=noetic
-ARG SIDE_A_UBNUTU=jammy
+ARG SIDE_A_UBUNTU=jammy
 ARG SIDE_B_UBUNTU=focal
 ARG BRIDGE_TYPE="regular"
 
@@ -9,7 +9,7 @@ ARG BRIDGE_TYPE="regular"
 # Base Images
 # -------------------------------------------------------------------------------------------------
 
-FROM grpc_bridge_base:${SIDE_A_UBNUTU} AS side_a_grpc_base
+FROM grpc_bridge_base:${SIDE_A_UBUNTU} AS side_a_grpc_base
 FROM grpc_bridge_base:${SIDE_B_UBUNTU} AS side_b_grpc_base
 
 # -------------------------------------------------------------------------------------------------
