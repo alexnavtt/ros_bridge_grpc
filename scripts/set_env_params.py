@@ -70,7 +70,7 @@ def main(config_file: str):
     # Message types
     system_packages = " "
     allowed_types = " "
-    for package_id, message_types in config_dict.get('msg_packages', dict()).items():
+    for package_id, message_types in config_dict.get('packages', dict()).items():
         msg_package, package_type = package_id.split('/')
         if msg_package not in custom_packages:
             system_packages += f'{msg_package} '

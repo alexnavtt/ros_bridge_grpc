@@ -1,6 +1,5 @@
 #include <thread>
 #include <random>
-#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <type_traits>
@@ -10,12 +9,6 @@
 #include <grpcpp/grpcpp.h>
 #include <register.hpp>
 #include <ros2/bridge_types.hpp>
-
-template<typename T>
-constexpr bool is_basic_v() {
-    // Returns true for all types that are basic types in ROS
-    return std::is_arithmetic<T>::value || std::is_same<T, std::string>::value || std::is_same<T, std::wstring>::value;
-}
 
 class BridgeServerROS2 : public rclcpp::Node {
 public:
@@ -61,18 +54,10 @@ public:
         std::string local_server_address = declare_parameter(local_server_address_config.name, local_server_address_default, local_server_address_config);
 
         // If the server address is a socket, delete it if it exists and append the URI spec
-        // if (std::filesystem::path(local_server_address).extension() == ".sock") {
-        //     if (std::filesystem::exists(local_server_address)) {
-        //         std::filesystem::remove(local_server_address);
-        //     }
-        //     local_server_address = "unix://" + local_server_address;
-        // }
-
-        // For compatibility with C++ 14
-        const std::string socket_extension = ".sock";
-        const std::string local_server_address_extension = local_server_address.substr(local_server_address.size() - socket_extension.size());
-        if (local_server_address_extension == socket_extension) {
-            std::remove(local_server_address.c_str());
+        if (std::filesystem::path(local_server_address).extension() == ".sock") {
+            if (std::filesystem::exists(local_server_address)) {
+                std::filesystem::remove(local_server_address);
+            }
             local_server_address = "unix://" + local_server_address;
         }
 
@@ -85,13 +70,7 @@ public:
         remote_server_address_config.read_only = true;
         std::string remote_server_address = declare_parameter(remote_server_address_config.name, remote_server_address_default, remote_server_address_config);
 
-        // if (std::filesystem::path(remote_server_address).extension() == ".sock") {
-        //     remote_server_address = "unix://" + remote_server_address;
-        // }
-
-        // For compatibility with C++ 14
-        const std::string remote_server_address_extension = remote_server_address.substr(remote_server_address.size() - socket_extension.size());
-        if (remote_server_address_extension == socket_extension) {
+        if (std::filesystem::path(remote_server_address).extension() == ".sock") {
             remote_server_address = "unix://" + remote_server_address;
         }
 

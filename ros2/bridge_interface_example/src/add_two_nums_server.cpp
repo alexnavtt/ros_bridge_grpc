@@ -10,7 +10,7 @@ int main(int argc, char* argv[]) {
         const bridge_interface_example::srv::AddTwoNums::Request::SharedPtr req, 
         bridge_interface_example::srv::AddTwoNums::Response::SharedPtr resp) 
     {
-        RCLCPP_INFO(node->get_logger(), "Get a request to add %.2f and %.2f", req->num1, req->num2);
+        RCLCPP_INFO(node->get_logger(), "Got a request to add %.2f and %.2f", req->num1, req->num2);
         resp->result.operand_1 = req->num1;
         resp->result.operand_2 = req->num2;
 

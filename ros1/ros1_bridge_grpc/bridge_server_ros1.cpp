@@ -13,12 +13,6 @@
 #include <register.hpp>
 #include <ros1/bridge_types.hpp>
 
-template<typename T>
-constexpr bool is_basic_v() {
-    // Returns true for all types that are basic types in ROS
-    return std::is_arithmetic<T>::value || std::is_same<T, std::string>::value || std::is_same<T, std::wstring>::value;
-}
-
 class BridgeServerROS1 {
 public:
     BridgeServerROS1(ros::NodeHandle& nh)
