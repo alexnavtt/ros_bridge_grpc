@@ -12,7 +12,7 @@ int main(int argc, char* argv[]) {
         rclcpp::shutdown();
         exit(0);
     }
-    RCLCPP_INFO(node->get_logger(), "Add Two Nums Client Online in ROS1");
+    RCLCPP_INFO(node->get_logger(), "Add Two Nums Client Online in ROS2");
 
     auto req = std::make_shared<bridge_interface_example::srv::AddTwoNums::Request>();
     req->num1 = 1;

@@ -4,7 +4,7 @@ services:
       context: ../.
       dockerfile: docker/grpc_base.Dockerfile
       network: host
-      target: grpc_base_ros2
+      target: grpc_base
       args:
         UBUNTU_DISTRO: $UBUNTU_DISTRO
     image: grpc_bridge_base:${UBUNTU_DISTRO:-jammy}
@@ -18,83 +18,83 @@ services:
       ssh: 
         - default
       args:
-        ROS1_DISTRO: $ROS_BRIDGE_GRPC_ROS1_DISTRO
-        ROS2_DISTRO: $ROS_BRIDGE_GRPC_ROS2_DISTRO
-        ROS2_UBUNTU: $ROS_BRIDGE_GRPC_ROS2_UBUNTU
+        SIDE_A_UBUNTU: $ROS_BRIDGE_GRPC_SIDE_A_UBUNTU
+        SIDE_A_DISTRO: $ROS_BRIDGE_GRPC_SIDE_A_DISTRO
+        USER_SIDE_A_REPOS: $ROS_BRIDGE_GRPC_USER_SIDE_A_REPOS
+        SIDE_B_UBUNTU: $ROS_BRIDGE_GRPC_SIDE_B_UBUNTU
+        SIDE_B_DISTRO: $ROS_BRIDGE_GRPC_SIDE_B_DISTRO
+        USER_SIDE_B_REPOS: $ROS_BRIDGE_GRPC_USER_SIDE_B_REPOS
         SYSTEM_PACKAGES: $ROS_BRIDGE_GRPC_SYSTEM_PACKAGES
-        USER_ROS1_REPOS: $ROS_BRIDGE_GRPC_USER_ROS1_REPOS
-        USER_ROS2_REPOS: $ROS_BRIDGE_GRPC_USER_ROS2_REPOS
         CUSTOM_PACKAGES: $ROS_BRIDGE_GRPC_CUSTOM_PACKAGES
         ALLOWED_TYPES: $ROS_BRIDGE_GRPC_ALLOWED_TYPES
         MESSAGE_PACKAGES: $ROS_BRIDGE_GRPC_MESSAGE_PACKAGES
         COMPAT_OVERRIDES: $ROS_BRIDGE_GRPC_COMPAT_OVERRIDES
-    image: ros_bridge_grpc
-    container_name: ros_bridge_grpc_container
+        BRIDGE_TYPE: $ROS_BRIDGE_GRPC_BRIDGE_TYPE
     tty: true
     stdin_open: true
     volumes:
       - ${ROS_BRIDGE_RUNTIME_CONFIG:-/dev/null}:/ros_params.yaml
       - /tmp:/tmp
+      - ${CYCLONEDDS_URI:-/dev/null}:/cyclonedds_uri.xml
+      - ./fastrtps_default_profile.xml:/root/fastrtps_default_profile.xml
+      - ${FASTDDS_DEFAULT_PROFILES_FILE:-/dev/null}:${FASTDDS_DEFAULT_PROFILES_FILE:-/dev/null}
+      - ${FASTRTPS_DEFAULT_PROFILES_FILE:-/dev/null}:${FASTRTPS_DEFAULT_PROFILES_FILE:-/dev/null}
     network_mode: host
     pid: host
     ipc: host
+    profiles: [none]
 
-  ros1_bridge_introspection:
+  side_b_introspection:
     extends: ros_bridge
-    image: ros1_bridge:$ROS_BRIDGE_GRPC_ROS1_DISTRO
-    container_name: ros1_bridge_${ROS_BRIDGE_GRPC_ROS1_DISTRO}_introspection
+    image: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}:$ROS_BRIDGE_GRPC_SIDE_B_DISTRO
+    container_name: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection_B
     build:
-      target: ros1_base
-    environment:
-      - ROS_MASTER_URI
-      - ROS_HOSTNAME
+      target: side_b_ros_base
+    env_file:
+      - ./../config/side_b.env
     profiles: [dev]
 
-  ros1_bridge:
-    extends: ros1_bridge_introspection
-    container_name: ros1_bridge_${ROS_BRIDGE_GRPC_ROS1_DISTRO}
+  side_b_bridge:
+    extends: side_b_introspection
+    container_name: ros_bridge_b_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}
     build:
-      target: ros1_build
-    entrypoint: /entrypoints/run_ros1_bridge.bash
+      target: side_b_build
+    entrypoint: /entrypoints/run_ros_bridge.bash
     profiles: [runtime, all]
 
-  ros2_bridge_introspection:
+  side_a_introspection:
     extends: ros_bridge
-    image: ros2_bridge:$ROS_BRIDGE_GRPC_ROS2_DISTRO
-    container_name: ros2_bridge_${ROS_BRIDGE_GRPC_ROS2_DISTRO}_introspection
+    image: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}:$ROS_BRIDGE_GRPC_SIDE_A_DISTRO
+    container_name: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection_A
     build:
-      target: ros2_generated
-    volumes:
-      - ${CYCLONEDDS_URI:-/dev/null}:/cyclonedds_uri.xml
-    environment:
-      - ROS_DOMAIN_ID
-      - RMW_IMPLEMENTATION
-      - CYCLONEDDS_URI=/cyclonedds_uri.xml
+      target: side_a_ros_base
+    env_file:
+      - ./../config/side_a.env
     profiles: [dev]
 
-  ros2_bridge:
-    extends: ros2_bridge_introspection
-    container_name: ros2_bridge_${ROS_BRIDGE_GRPC_ROS2_DISTRO}
+  side_a_bridge:
+    extends: side_a_introspection
+    container_name: ros_bridge_a_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}
     build:
-      target: ros2_build
+      target: side_a_build
     entrypoint: /entrypoints/run_ros2_bridge.bash
     profiles: [runtime, all]
 
   extract_generated:
     extends: ros_bridge
-    container_name: ros1_bridge_extract_generated
+    container_name: ros_bridge_extract_generated
     build:
-      target: ros1_base
-    command: ["cp", "-r", "/generated/", "/export/generated/"]
+      target: side_a_generated
+    command: ["cp", "-r", "/generated/", "/export/generated/final"]
     volumes:
-      - ./generated:/export/generated
+      - ./../generated:/export/generated
     profiles: [all]
 
-  ros1_bridge_dev:
-    extends: ros1_bridge_introspection
-    container_name: ros1_bridge_dev
+  side_b_bridge_dev:
+    extends: side_b_introspection
+    container_name: side_b_bridge_dev
     build:
-      target: ros1_bridge_dev
+      target: side_b_bridge_dev
     entrypoint: /bin/bash
     security_opt:
       # handle errors with RViz being denied dbus comm w/ host
@@ -112,11 +112,11 @@ services:
       # - ../misc:/catkin_ws/misc       # optional local directory to mount files
     profiles: [dev]
 
-  ros2_bridge_dev:
-    extends: ros2_bridge_introspection
-    container_name: ros2_bridge_dev
+  side_a_bridge_dev:
+    extends: side_a_introspection
+    container_name: side_a_bridge_dev
     build:
-      target: ros2_bridge_dev
+      target: side_a_bridge_dev
     entrypoint: /bin/bash
     security_opt:
       # handle errors with RViz being denied dbus comm w/ host

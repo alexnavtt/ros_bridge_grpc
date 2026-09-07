@@ -1,0 +1,1 @@
+eval "$(python3 ../scripts/set_env_params.py $ROS_BRIDGE_BUILD_CONFIG --no-mount)"

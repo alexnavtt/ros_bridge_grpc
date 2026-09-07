@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(ros2_bridge_grpc)
 
+set(CMAKE_CXX_STANDARD 17)
+
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(Protobuf REQUIRED)
@@ -34,13 +36,27 @@ target_link_libraries(conversions
 )
 
 add_executable(bridge_server_ros2 bridge_server_ros2.cpp)
-ament_target_dependencies(bridge_server_ros2 rclcpp)
-target_link_libraries(bridge_server_ros2 gRPC::grpc++ conversions)
-
-ament_target_dependencies(conversions
-    rclcpp
-    ${PACKAGE_LIST}
+target_link_libraries(bridge_server_ros2 
+    rclcpp::rclcpp
+    gRPC::grpc++ 
+    conversions
 )
+
+if(COMMAND ament_target_dependencies)
+    ament_target_dependencies(conversions
+        rclcpp
+        ${PACKAGE_LIST}
+    )
+else()
+    foreach(pkg IN LISTS PACKAGE_LIST)
+        list(APPEND LIBRARY_LIST "${pkg}::${pkg}")
+    endforeach()
+    target_link_libraries(conversions
+        rclcpp::rclcpp
+        ${LIBRARY_LIST}
+    )
+endif()
+
 
 install(TARGETS
     bridge_server_ros2

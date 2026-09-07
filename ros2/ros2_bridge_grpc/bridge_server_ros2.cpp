@@ -1,5 +1,6 @@
 #include <thread>
 #include <random>
+#include <cstdlib>
 #include <filesystem>
 #include <type_traits>
 #include <unordered_set>
@@ -9,16 +10,22 @@
 #include <register.hpp>
 #include <ros2/bridge_types.hpp>
 
-template<typename T>
-constexpr bool is_basic_v() {
-    // Returns true for all types that are basic types in ROS
-    return std::is_arithmetic<T>::value || std::is_same<T, std::string>::value || std::is_same<T, std::wstring>::value;
-}
-
 class BridgeServerROS2 : public rclcpp::Node {
 public:
     BridgeServerROS2(const std::string& name) : Node(name)
     {
+        const char* bridge_side_str = std::getenv("SIDE");
+        if (bridge_side_str == nullptr) {
+            RCLCPP_ERROR(get_logger(), "Cannot configure ROS2 bridge. The 'SIDE' environment variable is not set");
+            exit(1);
+        }
+        const std::string bridge_side{bridge_side_str};
+
+        // Sleep to allow the bridge bringup print statements to separate better
+        if (bridge_side == "B") {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+
         RCLCPP_INFO(get_logger(), "Starting ROS2 bridge server");
         
         // Retrieve the list of topics and their types for which to create bridges
@@ -38,39 +45,39 @@ public:
         std::vector<std::string> registered_services_param = declare_parameter(registered_services_config.name, std::vector<std::string>{}, registered_services_config);
 
         // Retrieve the channel on which to create the grpc server
-        rcl_interfaces::msg::ParameterDescriptor ros2_server_address_config;
-        const std::string ros2_server_address_default = "localhost:50051";
-        ros2_server_address_config.name = "ros2_server_address";
-        ros2_server_address_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
-        ros2_server_address_config.description = "The first port on which to perform gRPC communication in the format 'channel_ip_address:port_number'. Default localhost:50051";
-        ros2_server_address_config.read_only = true;
-        std::string ros2_server_address = declare_parameter(ros2_server_address_config.name, ros2_server_address_default, ros2_server_address_config);
+        rcl_interfaces::msg::ParameterDescriptor local_server_address_config;
+        const std::string local_server_address_default = "localhost:50051";
+        local_server_address_config.name = bridge_side == "A" ? "side_a_server_address" : "side_b_server_address";
+        local_server_address_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+        local_server_address_config.description = "The first port on which to perform gRPC communication in the format 'channel_ip_address:port_number'. Default localhost:50051";
+        local_server_address_config.read_only = true;
+        std::string local_server_address = declare_parameter(local_server_address_config.name, local_server_address_default, local_server_address_config);
 
         // If the server address is a socket, delete it if it exists and append the URI spec
-        if (std::filesystem::path(ros2_server_address).extension() == ".sock") {
-            if (std::filesystem::exists(ros2_server_address)) {
-                std::filesystem::remove(ros2_server_address);
+        if (std::filesystem::path(local_server_address).extension() == ".sock") {
+            if (std::filesystem::exists(local_server_address)) {
+                std::filesystem::remove(local_server_address);
             }
-            ros2_server_address = "unix://" + ros2_server_address;
+            local_server_address = "unix://" + local_server_address;
         }
 
         // Retrieve the channel on which to create the grpc client
-        rcl_interfaces::msg::ParameterDescriptor ros1_server_address_config;
-        const std::string ros1_server_address_default = "localhost:50052";
-        ros1_server_address_config.name = "ros1_server_address";
-        ros1_server_address_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
-        ros1_server_address_config.description = "The second port on which to perform gRPC communication in the format 'channel_ip_address:port_number'. Default localhost:50052";
-        ros1_server_address_config.read_only = true;
-        std::string ros1_server_address = declare_parameter(ros1_server_address_config.name, ros1_server_address_default, ros1_server_address_config);
+        rcl_interfaces::msg::ParameterDescriptor remote_server_address_config;
+        const std::string remote_server_address_default = "localhost:50052";
+        remote_server_address_config.name = bridge_side == "A" ? "side_b_server_address" : "side_a_server_address";
+        remote_server_address_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+        remote_server_address_config.description = "The second port on which to perform gRPC communication in the format 'channel_ip_address:port_number'. Default localhost:50052";
+        remote_server_address_config.read_only = true;
+        std::string remote_server_address = declare_parameter(remote_server_address_config.name, remote_server_address_default, remote_server_address_config);
 
-        if (std::filesystem::path(ros1_server_address).extension() == ".sock") {
-            ros1_server_address = "unix://" + ros1_server_address;
+        if (std::filesystem::path(remote_server_address).extension() == ".sock") {
+            remote_server_address = "unix://" + remote_server_address;
         }
 
         // Create a gRPC service builder to allow all types to register their publisher callbacks with
-        RCLCPP_INFO(get_logger(), "Creating gRPC server on %s", ros2_server_address.c_str());
+        RCLCPP_INFO(get_logger(), "Creating gRPC server on %s", local_server_address.c_str());
         grpc::ServerBuilder builder;
-        builder.AddListeningPort(ros2_server_address, grpc::InsecureServerCredentials());
+        builder.AddListeningPort(local_server_address, grpc::InsecureServerCredentials());
         
         // Allow larger message size 8MB (default is 4MB)
         builder.SetMaxReceiveMessageSize(8 * 1024 * 1024);
@@ -81,25 +88,34 @@ public:
         ch_args.SetMaxSendMessageSize(8 * 1024 * 1024);
 
         // Create a gRPC channel to allow all types to register their subscription callbacks with
-        RCLCPP_INFO(get_logger(), "Creating gRPC client on %s", ros1_server_address.c_str());
-        std::shared_ptr<grpc::Channel> channel = grpc::CreateCustomChannel(ros1_server_address, grpc::InsecureChannelCredentials(), ch_args);
+        RCLCPP_INFO(get_logger(), "Creating gRPC client on %s", remote_server_address.c_str());
+        std::shared_ptr<grpc::Channel> channel = grpc::CreateCustomChannel(remote_server_address, grpc::InsecureChannelCredentials(), ch_args);
 
         // For each of them, register the corresponding communication elements
-        rcl_interfaces::msg::ParameterDescriptor topic_type_param;
-        topic_type_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
-        rcl_interfaces::msg::ParameterDescriptor transient_local_param;
-        transient_local_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
-        rcl_interfaces::msg::ParameterDescriptor best_effort_param;
-        best_effort_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
-        for (const std::string& topic : registered_topics_param) {
-            topic_type_param.name = topic + ".type";
-            const std::string type = declare_parameter<std::string>(topic_type_param.name, topic_type_param);
-            
-            transient_local_param.name = topic + ".transient_local";
-            const bool is_transient_local = declare_parameter(transient_local_param.name, false, transient_local_param);
+        rcl_interfaces::msg::ParameterDescriptor topic_type_config;
+        topic_type_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+        topic_type_config.description = "The message type of the topic to register";
+        topic_type_config.read_only = true;
 
-            best_effort_param.name = topic + ".best_effort";
-            const bool is_best_effort = declare_parameter(best_effort_param.name, false, best_effort_param);
+        rcl_interfaces::msg::ParameterDescriptor transient_local_config;
+        transient_local_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
+        transient_local_config.description = "Whether or not the topic should be registered transient local";
+        transient_local_config.read_only = true;
+
+        rcl_interfaces::msg::ParameterDescriptor best_effort_config;
+        best_effort_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
+        best_effort_config.description = "Whether or not the topic should be registered best effort";
+        best_effort_config.read_only = true;
+
+        for (const std::string& topic : registered_topics_param) {
+            topic_type_config.name = topic + ".type";
+            const std::string type = declare_parameter(topic_type_config.name, "PARAMETER_NOT_SET", topic_type_config);
+            
+            transient_local_config.name = topic + ".transient_local";
+            const bool is_transient_local = declare_parameter(transient_local_config.name, false, transient_local_config);
+
+            best_effort_config.name = topic + ".best_effort";
+            const bool is_best_effort = declare_parameter(best_effort_config.name, false, best_effort_config);
 
             if (!publisher_registration_callbacks.count(type) || !subscriber_registration_callbacks.count(type)) {
                 RCLCPP_ERROR(get_logger(), "Requested type %s for topic %s is unknown to the bridge server, cannot make a connnection!", type.c_str(), topic.c_str());
@@ -120,16 +136,23 @@ public:
             subscribers[topic] = subscriber_registration_callbacks.at(type)(topic, *this, channel, is_transient_local, is_best_effort);
         }
 
-        rcl_interfaces::msg::ParameterDescriptor service_type_param;
-        topic_type_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
-        rcl_interfaces::msg::ParameterDescriptor service_role_param;
-        topic_type_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
-        for (const std::string& service_name : registered_services_param) {
-            service_type_param.name = service_name + ".type";
-            const std::string type = declare_parameter<std::string>(service_type_param.name, service_type_param);
+        rcl_interfaces::msg::ParameterDescriptor service_type_config;
+        service_type_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+        service_type_config.description = "The service type to register";
+        service_type_config.read_only = true;
 
-            service_role_param.name = service_name + ".ros2_role";
-            const std::string role = declare_parameter<std::string>(service_role_param.name, service_role_param);
+        rcl_interfaces::msg::ParameterDescriptor service_role_config;
+        service_role_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+        service_role_config.description = "Whether we should register a service or client";
+        service_role_config.read_only = true;
+
+        for (const std::string& service_name : registered_services_param) {
+            service_type_config.name = service_name + ".type";
+            const std::string type = declare_parameter(service_type_config.name, "PARAMETER_NOT_SET", service_type_config);
+
+            service_role_config.name = service_name + (bridge_side == "A" ? ".side_a_role" : ".side_b_role");
+            const std::string role = declare_parameter(service_role_config.name, "PARAMETER_NOT_SET", service_role_config);
+
             if (role != "service" && role != "client") {
                 RCLCPP_ERROR(get_logger(), "Unknown role passed for %s: \"%s\". Valid options are \"service\" and \"client\"", service_name.c_str(), role.c_str());
                 continue;
@@ -225,5 +248,10 @@ int main(int argc, char* argv[]) {
     std::srand(std::hash<std::thread::id>{}(std::this_thread::get_id()));
     uid = std::to_string(std::rand());
     auto node = std::make_shared<BridgeServerROS2>("bridge_server_ros2");
+
+    const char* ros_distro_str = std::getenv("ROS_DISTRO");
+    const char* domain_id_str = std::getenv("ROS_DOMAIN_ID");
+    const char* implementation_str = std::getenv("RMW_IMPLEMENTATION");
+    RCLCPP_INFO(node->get_logger(), "Using\n\tROS_DISTRO: %s\n\tROS_DOMAIN_ID: %s\n\tRMW_IMPLEMENTATION: %s\n\tUID: %s", ros_distro_str, domain_id_str, implementation_str, uid.c_str());
     rclcpp::spin(node);
 }

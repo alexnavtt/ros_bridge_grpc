@@ -1,31 +1,27 @@
-ros1_distro: noetic
-ros2_distro: humble
+side_A_distro: jazzy # side_A must always be ROS2
+side_B_distro: noetic
 
-msg_packages:
-    std_msgs/msg: [String]
-    tf2_msgs/msg: [ALL]
-    geometry_msgs/msg: [ALL]
-    sensor_msgs/msg: [PointCloud2]
-    moveit_msgs/msg: [JointLimits, SolidPrimitive]
-    std_srvs/srv: [Trigger, SetBool]
-    my_package/msg: [MyMessage]
-    my_package/srv: [MyService]
+packages:
+   std_msgs/msg: [String]
+   tf2_msgs/msg: [ALL]
+   geometry_msgs/msg: [PoseWithCovarianceStamped]
+   sensor_msgs/msg: [PointCloud2, Image, CameraInfo, JointState]
+   moveit_msgs/msg: [JointLimits, SolidPrimitive]
+   std_srvs/srv: [Trigger, SetBool]
+   bridge_interface_example/srv: [ALL]
 
 custom_packages:
-    - {package_name: my_package,
-       ros1_url: "https://github.com/my_org/my_package.git -b noetic",
-       ros2_url: "https://github.com/my_org/my_package.git -b humble"}
-    - {package_name: my_other_package,
-       ros1_url: "git@github.com:my_org/my_other_package.git",
-       ros2_url: "git@github.com:my_org/my_other_package.git -b ros2"}
-    - {package_name: local_package,
-       ros1_path: "/local/path/to/my/awesome/ros1/interface_package",
-       ros2_path: "/local/path/to/my/awesome/ros2/interface_package"}
-    - {package_name: local_package_dependency,
-       ros1_path: "/local/path/to/my/non_rosdep/ros1/interface/package/dependency",
-       ros2_path: "/local/path/to/my/non_rosdep/ros2/interface/package/dependency"}
+   - {package_name: bridge_interface_example,
+      side_A_path: ./../ros2/bridge_interface_example,
+      side_B_path: ./../ros1/bridge_interface_example}
+
+   - {package_name: moveit_msgs,
+      side_A_url: https://github.com/moveit/moveit_msgs.git -b ros2,
+      side_B_url: https://github.com/moveit/moveit_msgs.git -b master}
 
 compatibility_overrides:
-    - "std_msgs/msg/Header"             # Has seq field in ROS1 but not in ROS2
-    - "shape_msgs/msg/SolidPrimitive"   # Has new enum constants added in ROS2
-    - "moveit_msgs/msg/JointLimits"     # Has jerk related fields in ROS2 but not ROS1
+   - "std_msgs/msg/Header"              # Has seq field in ROS1 but not in ROS2
+   - "shape_msgs/msg/SolidPrimitive"    # Has new enum constants added in ROS2
+   - "moveit_msgs/msg/JointLimits"      # Has jerk related fields in ROS2 but not ROS1
+   - "moveit_msgs/srv/GetCartesianPath" # Introduced a new link speed limit field in ROS2 iron  
+   - "moveit_msgs/msg/MoveItErrorCodes" # Introduced a new message and source fields in ROS2 jazzy

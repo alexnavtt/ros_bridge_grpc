@@ -28,20 +28,26 @@ registered_topics:
 # === Services ===
 registered_services:
   - /start_behavior_tree
+  - /add_two_nums
 
 /start_behavior_tree:
   type: std_srvs/srv/Trigger
-  ros1_role: client
-  ros2_role: service
+  side_a_role: client
+  side_b_role: service
+
+/add_two_nums:
+  type: bridge_interface_example/srv/AddTwoNums
+  side_a_role: service
+  side_b_role: client
 
 # === Networking ===
-ros1_server_address: localhost:50051
-ros2_server_address: localhost:50052
+side_a_server_address: localhost:50051
+side_b_server_address: localhost:50052
 
 # For use on multiple machines
-# ros1_server_address: 192.168.0.100:20051
-# ros2_server_address: 0.0.0.0:20052
+# side_a_server_address: 192.168.0.100:20051
+# side_b_server_address: 0.0.0.0:20052
 
 # Alternately with unix sockets
-# ros1_server_address: /tmp/ros1_server.sock
-# ros2_server_address: /tmp/ros2_server.sock
+# side_a_server_address: /tmp/side_a_server.sock
+# side_b_server_address: /tmp/side_b_server.sock
