@@ -362,12 +362,12 @@ def get_all_known_message_types_ros2() -> Dict[str, List[str]]:
     # Create a lookup for all message types known in ROS2
     message_lookup = ros2interface.api.get_message_interfaces()
     for msg_types in message_lookup.values():
-        msg_types[:] = [msg_type.removeprefix('msg/') for msg_type in msg_types]
+        msg_types[:] = [msg_type[len('msg/'):] for msg_type in msg_types]
 
     # Create a lookup for all service types known in ROS2
     service_lookup = ros2interface.api.get_service_interfaces()
     for srv_types in service_lookup.values():
-        srv_types[:] = [srv_type.removeprefix('srv/') for srv_type in srv_types]
+        srv_types[:] = [srv_type[:len('srv/')] for srv_type in srv_types]
 
     return message_lookup, service_lookup
 

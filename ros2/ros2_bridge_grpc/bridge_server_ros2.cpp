@@ -1,5 +1,6 @@
 #include <thread>
 #include <random>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <type_traits>
@@ -60,10 +61,18 @@ public:
         std::string local_server_address = declare_parameter(local_server_address_config.name, local_server_address_default, local_server_address_config);
 
         // If the server address is a socket, delete it if it exists and append the URI spec
-        if (std::filesystem::path(local_server_address).extension() == ".sock") {
-            if (std::filesystem::exists(local_server_address)) {
-                std::filesystem::remove(local_server_address);
-            }
+        // if (std::filesystem::path(local_server_address).extension() == ".sock") {
+        //     if (std::filesystem::exists(local_server_address)) {
+        //         std::filesystem::remove(local_server_address);
+        //     }
+        //     local_server_address = "unix://" + local_server_address;
+        // }
+
+        // For compatibility with C++ 14
+        const std::string socket_extension = ".sock";
+        const std::string local_server_address_extension = local_server_address.substr(local_server_address.size() - socket_extension.size());
+        if (local_server_address_extension == socket_extension) {
+            std::remove(local_server_address.c_str());
             local_server_address = "unix://" + local_server_address;
         }
 
@@ -76,7 +85,13 @@ public:
         remote_server_address_config.read_only = true;
         std::string remote_server_address = declare_parameter(remote_server_address_config.name, remote_server_address_default, remote_server_address_config);
 
-        if (std::filesystem::path(remote_server_address).extension() == ".sock") {
+        // if (std::filesystem::path(remote_server_address).extension() == ".sock") {
+        //     remote_server_address = "unix://" + remote_server_address;
+        // }
+
+        // For compatibility with C++ 14
+        const std::string remote_server_address_extension = remote_server_address.substr(remote_server_address.size() - socket_extension.size());
+        if (remote_server_address_extension == socket_extension) {
             remote_server_address = "unix://" + remote_server_address;
         }
 
@@ -98,21 +113,30 @@ public:
         std::shared_ptr<grpc::Channel> channel = grpc::CreateCustomChannel(remote_server_address, grpc::InsecureChannelCredentials(), ch_args);
 
         // For each of them, register the corresponding communication elements
-        rcl_interfaces::msg::ParameterDescriptor topic_type_param;
-        topic_type_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
-        rcl_interfaces::msg::ParameterDescriptor transient_local_param;
-        transient_local_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
-        rcl_interfaces::msg::ParameterDescriptor best_effort_param;
-        best_effort_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
-        for (const std::string& topic : registered_topics_param) {
-            topic_type_param.name = topic + ".type";
-            const std::string type = declare_parameter<std::string>(topic_type_param.name, topic_type_param);
-            
-            transient_local_param.name = topic + ".transient_local";
-            const bool is_transient_local = declare_parameter(transient_local_param.name, false, transient_local_param);
+        rcl_interfaces::msg::ParameterDescriptor topic_type_config;
+        topic_type_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+        topic_type_config.description = "The message type of the topic to register";
+        topic_type_config.read_only = true;
 
-            best_effort_param.name = topic + ".best_effort";
-            const bool is_best_effort = declare_parameter(best_effort_param.name, false, best_effort_param);
+        rcl_interfaces::msg::ParameterDescriptor transient_local_config;
+        transient_local_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
+        transient_local_config.description = "Whether or not the topic should be registered transient local";
+        transient_local_config.read_only = true;
+
+        rcl_interfaces::msg::ParameterDescriptor best_effort_config;
+        best_effort_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
+        best_effort_config.description = "Whether or not the topic should be registered best effort";
+        best_effort_config.read_only = true;
+
+        for (const std::string& topic : registered_topics_param) {
+            topic_type_config.name = topic + ".type";
+            const std::string type = declare_parameter(topic_type_config.name, "PARAMETER_NOT_SET", topic_type_config);
+            
+            transient_local_config.name = topic + ".transient_local";
+            const bool is_transient_local = declare_parameter(transient_local_config.name, false, transient_local_config);
+
+            best_effort_config.name = topic + ".best_effort";
+            const bool is_best_effort = declare_parameter(best_effort_config.name, false, best_effort_config);
 
             if (!publisher_registration_callbacks.count(type) || !subscriber_registration_callbacks.count(type)) {
                 RCLCPP_ERROR(get_logger(), "Requested type %s for topic %s is unknown to the bridge server, cannot make a connnection!", type.c_str(), topic.c_str());
@@ -133,16 +157,23 @@ public:
             subscribers[topic] = subscriber_registration_callbacks.at(type)(topic, *this, channel, is_transient_local, is_best_effort);
         }
 
-        rcl_interfaces::msg::ParameterDescriptor service_type_param;
-        topic_type_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
-        rcl_interfaces::msg::ParameterDescriptor service_role_param;
-        topic_type_param.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
-        for (const std::string& service_name : registered_services_param) {
-            service_type_param.name = service_name + ".type";
-            const std::string type = declare_parameter<std::string>(service_type_param.name, service_type_param);
+        rcl_interfaces::msg::ParameterDescriptor service_type_config;
+        service_type_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+        service_type_config.description = "The service type to register";
+        service_type_config.read_only = true;
 
-            service_role_param.name = service_name + (bridge_side == "A" ? ".side_a_role" : ".side_b_role");
-            const std::string role = declare_parameter<std::string>(service_role_param.name, service_role_param);
+        rcl_interfaces::msg::ParameterDescriptor service_role_config;
+        service_role_config.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+        service_role_config.description = "Whether we should register a service or client";
+        service_role_config.read_only = true;
+
+        for (const std::string& service_name : registered_services_param) {
+            service_type_config.name = service_name + ".type";
+            const std::string type = declare_parameter(service_type_config.name, "PARAMETER_NOT_SET", service_type_config);
+
+            service_role_config.name = service_name + (bridge_side == "A" ? ".side_a_role" : ".side_b_role");
+            const std::string role = declare_parameter(service_role_config.name, "PARAMETER_NOT_SET", service_role_config);
+
             if (role != "service" && role != "client") {
                 RCLCPP_ERROR(get_logger(), "Unknown role passed for %s: \"%s\". Valid options are \"service\" and \"client\"", service_name.c_str(), role.c_str());
                 continue;

@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(ros2_bridge_grpc)
 
+set(CMAKE_CXX_STANDARD 14)
+
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(Protobuf REQUIRED)
@@ -12,7 +14,6 @@ separate_arguments(PACKAGE_LIST UNIX_COMMAND "${PACKAGE_LIST_STRING}")
 message("PACKAGE LIST = ${PACKAGE_LIST}")
 foreach(pkg IN LISTS PACKAGE_LIST)
     find_package(${pkg} REQUIRED)
-    list(APPEND LIBRARY_LIST "${pkg}::${pkg}")
 endforeach()
 
 include_directories(
@@ -41,10 +42,21 @@ target_link_libraries(bridge_server_ros2
     conversions
 )
 
-target_link_libraries(conversions
-    rclcpp::rclcpp
-    ${LIBRARY_LIST}
-)
+if(COMMAND ament_target_dependencies)
+    ament_target_dependencies(conversions
+        rclcpp
+        ${PACKAGE_LIST}
+    )
+else()
+    foreach(pkg IN LISTS PACKAGE_LIST)
+        list(APPEND LIBRARY_LIST "${pkg}::${pkg}")
+    endforeach()
+    target_link_libraries(conversions
+        rclcpp::rclcpp
+        ${LIBRARY_LIST}
+    )
+endif()
+
 
 install(TARGETS
     bridge_server_ros2

@@ -20,6 +20,8 @@ def main(config_file: str):
     match output_dict['ROS_BRIDGE_GRPC_SIDE_A_DISTRO']:
         case ('noetic'):
             raise RuntimeError(f'SideA must be a ROS2 distro. You gave {output_dict["ROS_BRIDGE_GRPC_SIDE_A_DISTRO"]}')
+        case ('foxy'|'galactic'):
+            output_dict['ROS_BRIDGE_GRPC_SIDE_A_UBUNTU'] = 'focal'
         case ('humble'|'iron'):
             output_dict['ROS_BRIDGE_GRPC_SIDE_A_UBUNTU'] = 'jammy'
         case ('jazzy'|'kilted'):
@@ -28,7 +30,7 @@ def main(config_file: str):
             output_dict['ROS_BRIDGE_GRPC_SIDE_A_UBUNTU'] = 'resolute'
 
     match output_dict['ROS_BRIDGE_GRPC_SIDE_B_DISTRO']:
-        case ('noetic'):
+        case ('noetic'|'foxy'|'galactic'):
             output_dict['ROS_BRIDGE_GRPC_SIDE_B_UBUNTU'] = 'focal'
         case ('humble'|'iron'):
             output_dict['ROS_BRIDGE_GRPC_SIDE_B_UBUNTU'] = 'jammy'
