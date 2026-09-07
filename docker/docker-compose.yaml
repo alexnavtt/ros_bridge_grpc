@@ -34,7 +34,7 @@ services:
     stdin_open: true
     volumes:
       - ${ROS_BRIDGE_RUNTIME_CONFIG:-/dev/null}:/ros_params.yaml
-      - /tmp
+      - /tmp:/tmp
       - ${CYCLONEDDS_URI:-/dev/null}:/cyclonedds_uri.xml
       - ./fastrtps_default_profile.xml:/root/fastrtps_default_profile.xml
       - ${FASTDDS_DEFAULT_PROFILES_FILE:-/dev/null}:${FASTDDS_DEFAULT_PROFILES_FILE:-/dev/null}
