@@ -103,15 +103,29 @@ registered_topics:
 # === Services ===
 registered_services:
   - /start_behavior_tree
+  - /add_two_nums
 
 /start_behavior_tree:
   type: std_srvs/srv/Trigger
   side_a_role: client
   side_b_role: service
 
+/add_two_nums:
+  type: bridge_interface_example/srv/AddTwoNums
+  side_a_role: service
+  side_b_role: client
+
 # === Networking ===
-side_a_server_address: /tmp/side_a_server.sock
-side_b_server_address: /tmp/side_b_server.sock
+side_a_server_address: localhost:50051
+side_b_server_address: localhost:50052
+
+# For use on multiple machines
+# side_a_server_address: 192.168.0.100:20051
+# side_b_server_address: 0.0.0.0:20052
+
+# Alternately with unix sockets
+# side_a_server_address: /tmp/side_a_server.sock
+# side_b_server_address: /tmp/side_b_server.sock
 ```
 Navigate to the `docker` folder of this repo, and run the following commands:
 
