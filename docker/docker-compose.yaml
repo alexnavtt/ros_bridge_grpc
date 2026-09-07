@@ -30,8 +30,6 @@ services:
         MESSAGE_PACKAGES: $ROS_BRIDGE_GRPC_MESSAGE_PACKAGES
         COMPAT_OVERRIDES: $ROS_BRIDGE_GRPC_COMPAT_OVERRIDES
         BRIDGE_TYPE: $ROS_BRIDGE_GRPC_BRIDGE_TYPE
-    image: ros_bridge_grpc
-    container_name: ros_bridge_grpc_container
     tty: true
     stdin_open: true
     volumes:
@@ -48,8 +46,8 @@ services:
 
   side_b_introspection:
     extends: ros_bridge
-    image: ros_bridge:$ROS_BRIDGE_GRPC_SIDE_B_DISTRO
-    container_name: ros_bridge_b_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection
+    image: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}:$ROS_BRIDGE_GRPC_SIDE_B_DISTRO
+    container_name: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection_B
     build:
       target: side_b_ros_base
     env_file:
@@ -66,8 +64,8 @@ services:
 
   side_a_introspection:
     extends: ros_bridge
-    image: ros_bridge:$ROS_BRIDGE_GRPC_SIDE_A_DISTRO
-    container_name: ros_bridge_a_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_introspection
+    image: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}:$ROS_BRIDGE_GRPC_SIDE_A_DISTRO
+    container_name: ros_bridge_${ROS_BRIDGE_GRPC_SIDE_A_DISTRO}_${ROS_BRIDGE_GRPC_SIDE_B_DISTRO}_introspection_A
     build:
       target: side_a_ros_base
     env_file:
@@ -86,10 +84,10 @@ services:
     extends: ros_bridge
     container_name: ros_bridge_extract_generated
     build:
-      target: side_b_ros_base
-    command: ["cp", "-r", "/generated/", "/export/generated/"]
+      target: side_a_generated
+    command: ["cp", "-r", "/generated/", "/export/generated/final"]
     volumes:
-      - ./generated:/export/generated
+      - ./../generated:/export/generated
     profiles: [all]
 
   side_b_bridge_dev:
