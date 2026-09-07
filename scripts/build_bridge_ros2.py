@@ -3,7 +3,7 @@ import sys
 import ros2interface.api
 
 generated_files = []
-message_dependencies = set[str]()
+message_dependencies = set()
 
 types_map = {
     'builtin_interfaces/Time': 'google.protobuf.Timestamp',
@@ -59,7 +59,7 @@ def resolve_type(field_type: str) -> str:
     if field_type.startswith('sequence<'):
         if ',' in field_type:
             field_type = field_type[:field_type.find(',')] + '>'
-        return 'repeated ' + resolve_type(field_type.removeprefix('sequence<')[:-1])
+        return 'repeated ' + resolve_type(field_type[len('sequence<'):-1])
     # Constant sized array
     elif field_type.endswith(']'):
         return 'repeated ' + resolve_type(field_type[:field_type.find('[')])
@@ -94,7 +94,7 @@ def resolve_import(field_type: str) -> str:
     if field_type.startswith('sequence<'):
         if ',' in field_type:
             field_type = field_type[:field_type.find(',')] + '>'
-        field_type = field_type.removeprefix('sequence<')[:-1]
+        field_type = field_type[len('sequence<'):-1]
 
     if field_type in imports_map:
         return imports_map[field_type]
@@ -226,7 +226,7 @@ def ros2_service_to_proto_srv(msg_package: str, srv_type: str, proto_path: str, 
             '}\n'
         )
 
-def main(code_gen_path: str, allowed_types: list[str]):
+def main(code_gen_path: str, allowed_types: list):
     global message_dependencies
     logger = Logger(os.path.join(code_gen_path, 'log', 'ros2_bridge.txt'))
 
@@ -263,7 +263,7 @@ def main(code_gen_path: str, allowed_types: list[str]):
         logger.log_msg(f'Message dependencies for built messages in {msg_package}: {message_dependencies}')
         while len(message_dependencies) > 0:
             tmp_message_dependencies = list(message_dependencies)
-            message_dependencies = set[str]()
+            message_dependencies = set()
             for msg_type in tmp_message_dependencies:
                 msg_package, _, trimmed_msg_type, _ = msg_type.split('.')
                 ros2_message_to_proto_msg(msg_package, trimmed_msg_type, proto_path, logger)
@@ -287,7 +287,7 @@ def main(code_gen_path: str, allowed_types: list[str]):
         logger.log_msg(f'Message dependencies for built messages in {msg_package}: {message_dependencies}')
         while len(message_dependencies) > 0:
             tmp_message_dependencies = list(message_dependencies)
-            message_dependencies = set[str]()
+            message_dependencies = set()
             for msg_type in tmp_message_dependencies:
                 logger.log_msg(f'{msg_type}')            
                 msg_package, _, trimmed_msg_type, _ = msg_type.split('.')
