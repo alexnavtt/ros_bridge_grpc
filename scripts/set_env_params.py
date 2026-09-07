@@ -48,7 +48,7 @@ def main(config_file: str):
             if git_url := custom_package.get(f'{version}_url', None):
                 git_urls[version] += f'{git_url};'
 
-            elif local_path := custom_package.get(f'{version}_path', None):
+            elif local_path := custom_package.get(f'{version}_path', None) and '--no-mount' not in sys.argv:
                 source_dir, _ = os.path.split(os.path.abspath(__file__))
                 mapped_dir = os.path.join(source_dir, '..', 'docker', 'mapped', version)
 
