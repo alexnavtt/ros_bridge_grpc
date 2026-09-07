@@ -367,7 +367,7 @@ def get_all_known_message_types_ros2() -> Dict[str, List[str]]:
     # Create a lookup for all service types known in ROS2
     service_lookup = ros2interface.api.get_service_interfaces()
     for srv_types in service_lookup.values():
-        srv_types[:] = [srv_type[:len('srv/')] for srv_type in srv_types]
+        srv_types[:] = [srv_type[len('srv/'):] for srv_type in srv_types]
 
     return message_lookup, service_lookup
 
@@ -411,7 +411,7 @@ def main():
         
         if msg_package not in lookup or msg_typename not in lookup[msg_package]:
             missed_packages.add(msg_typename)
-            logger.log_msg(f'Cannot find matching type {msg_typename} in package {msg_package}')
+            logger.log_msg(f'Cannot find matching type {msg_typename} in package {msg_package}/{msg_class}')
             logger.log_msg(f'Deleting {file_path}\n')
             deleted_files.add(filename)
             os.remove(file_path)
