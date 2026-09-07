@@ -15,19 +15,28 @@ rosidl_generate_interfaces(${PROJECT_NAME}
     srv/AddTwoNums.srv
 )
 ament_export_dependencies(rosidl_default_runtime)
-rosidl_get_typesupport_target(local_messages_cpp ${PROJECT_NAME} rosidl_typesupport_cpp)
 
 add_executable(add_two_nums_client src/add_two_nums_client.cpp)
-target_link_libraries(add_two_nums_client 
-    ${local_messages_cpp}
-    rclcpp::rclcpp
-)
-
 add_executable(add_two_nums_server src/add_two_nums_server.cpp)
-target_link_libraries(add_two_nums_server 
-    ${local_messages_cpp}
-    rclcpp::rclcpp
-)
+
+if(COMMAND rosidl_get_typesupport_target)
+    rosidl_get_typesupport_target(local_messages_cpp ${PROJECT_NAME} rosidl_typesupport_cpp)
+    target_link_libraries(add_two_nums_client 
+        ${local_messages_cpp}
+        rclcpp::rclcpp
+    )
+
+    target_link_libraries(add_two_nums_server 
+        ${local_messages_cpp}
+        rclcpp::rclcpp
+    )
+else()
+    target_link_libraries(add_two_nums_client rclcpp::rclcpp)
+    rosidl_target_interfaces(add_two_nums_client ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
+    target_link_libraries(add_two_nums_server rclcpp::rclcpp)
+    rosidl_target_interfaces(add_two_nums_server ${PROJECT_NAME} "rosidl_typesupport_cpp")
+endif()
 
 install(
     TARGETS

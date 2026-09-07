@@ -13,7 +13,7 @@ FROM grpc_bridge_base:${SIDE_A_UBNUTU} AS side_a_grpc_base
 FROM grpc_bridge_base:${SIDE_B_UBUNTU} AS side_b_grpc_base
 
 # -------------------------------------------------------------------------------------------------
-# ROS2 Generate
+# Side A Generate Proto Definitions
 # -------------------------------------------------------------------------------------------------
 
 FROM ros:${SIDE_A_DISTRO}-ros-base AS side_a_ros_base
@@ -86,7 +86,7 @@ RUN source /opt/ros/${SIDE_A_DISTRO}/setup.bash \
     && python3 /scripts/build_bridge_ros2.py /generated ${ALLOWED_TYPES}
 
 # -------------------------------------------------------------------------------------------------
-# Side B Generate
+# Side B Evaluate Proto Definitions
 # -------------------------------------------------------------------------------------------------
 
 FROM ros:${SIDE_B_DISTRO}-ros-base AS side_b_ros_base
@@ -186,6 +186,8 @@ RUN rm -rf /generated
 COPY --from=side_b_ros_base /generated /generated
 
 FROM side_a_generated_${BRIDGE_TYPE} AS side_a_generated
+ARG SIDE_A_DISTRO
+ARG SIDE_B_DISTRO
 
 # Run protoc to generate the base level proto_cpp and gRPC code
 RUN mkdir -p /generated/proto_cpp \
@@ -200,7 +202,7 @@ RUN mkdir -p /generated/proto_cpp \
 # Generate C++ source code to translate between proto and ROS
 RUN pip install proto-schema-parser
 COPY scripts/generate_cpp_conversion_code.py /scripts/generate_cpp_conversion_code.py
-RUN python3 /scripts/generate_cpp_conversion_code.py /generated
+RUN SIDE_A_DISTRO=${SIDE_A_DISTRO} SIDE_B_DISTRO=${SIDE_B_DISTRO} python3 /scripts/generate_cpp_conversion_code.py /generated
 
 # -------------------------------------------------------------------------------------------------
 # ROS2 Build

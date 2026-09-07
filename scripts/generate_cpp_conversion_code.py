@@ -31,9 +31,10 @@ class FileMetadata:
             self.pointer = 'ConstPtr'                              # eg. std_msgs::String::ConstPtr
 
         elif self.mode == 'ros2':
-            self.ros_type = f'{self.msg_package}::{self.msg_class}::{self.msg_type}'            # eg. std_msgs::msg::String or std_srvs::srv::SetBool
-            self.header = f'{self.msg_package}/{self.msg_class}/{to_snake(self.msg_type)}.hpp'  # eg. std_msgs/msg/string.hpp or std_srvs/srv/set_bool.hpp
-            self.pointer = 'ConstSharedPtr'                                                     # eg. std_msgs::msg::String::ConstSharedPtr
+            self.ros_type = f'{self.msg_package}::{self.msg_class}::{self.msg_type}'                   # eg. std_msgs::msg::String or std_srvs::srv::SetBool
+            self.header = f'{self.msg_package}/{self.msg_class}/{to_snake(self.msg_type)}.hpp'         # eg. std_msgs/msg/string.hpp or std_srvs/srv/set_bool.hpp
+            self.foxy = os.environ['SIDE_A_DISTRO'] == "foxy" or os.environ['SIDE_B_DISTRO'] == 'foxy' # eg. Handle foxy-specific service issues
+            self.pointer = 'ConstSharedPtr'                                                            # eg. std_msgs::msg::String::ConstSharedPtr
 
         if self.msg_class == 'msg':
             self.ros_type = [self.ros_type]
@@ -242,12 +243,15 @@ def add_service_generator_callback(file_metadata: FileMetadata, dest_path: str) 
             f.write(
             f'    auto request_received_callback = [&stub, &nh, service_name]({ros_req_type}& ros_req, {ros_resp_type}& ros_resp){"{"}\n'
             )
+        elif file_metadata.foxy:
+            f.write(
+            f'    auto request_received_callback = [&stub, &nh, service_name](const {ros_req_type}::SharedPtr ros_req, {ros_resp_type}::SharedPtr ros_resp) -> void {"{"}\n'
+            )
         else:
             f.write(
             f'    auto server_holder = std::make_shared<rclcpp::Service<{service_type}>::SharedPtr>();\n'
-            f'    auto request_received_callback = [&stub, &nh, server_holder, service_name](const std::shared_ptr<rmw_request_id_t> request_header, const {ros_req_type}::{pointer} ros_req) -> void {"{"}\n'
+            f'    auto request_received_callback = [&stub, &nh, server_holder, service_name](const std::shared_ptr<rmw_request_id_t> request_header, const {ros_req_type}::ConstSharedPtr ros_req) -> void {"{"}\n'
             )
-        
 
         f.write(
             f'        auto request_packet = std::make_shared<{msg_package}_srv_proto::{msg_type}RequestPacket>();\n'
@@ -258,14 +262,14 @@ def add_service_generator_callback(file_metadata: FileMetadata, dest_path: str) 
             f'\n'
         )
         
-        if mode == 'ros1':
+        if mode == 'ros1' or file_metadata.foxy:
             f.write(
-            f'        ros2grpc(ros_req, *request_packet->mutable_request());\n'
+            f'        ros2grpc({"" if mode == "ros1" else "*"}ros_req, *request_packet->mutable_request());\n'
             f'        grpc::Status status = stub->CallROSService(client_context.get(), *request_packet, response_packet.get());\n'
             f'        if (!status.ok()) LOG_INFO(nh, "gRPC call failed sending service \'%s\' of type \'{service_type}\'  across the bridge: %s\\n%s",\n'
             f'              service_name.c_str(), status.error_message().c_str(), status.error_details().c_str());\n'
-            f'        grpc2ros(response_packet->response(), ros_resp);\n'
-            f'        return true;\n'
+            f'        grpc2ros(response_packet->response(), {"" if mode == "ros1" else "*"}ros_resp);\n'
+            f'        return {"true" if mode == "ros1" else ""};\n'
             )
         else:
             f.write(
@@ -289,7 +293,7 @@ def add_service_generator_callback(file_metadata: FileMetadata, dest_path: str) 
             f'    {"}"};\n'
             f'\n'
             f'    auto server = CREATE_SERVER_POINTER(nh, {service_type}, service_name, request_received_callback);\n'
-            f'    {"*server_holder = server;" if mode == "ros2" else ""}\n'
+            f'    {"*server_holder = server;" if mode == "ros2" and not file_metadata.foxy else ""}\n'
             f'    return std::static_pointer_cast<SERVICE_SERVER_BASE>(server);\n'
             f'{"}"}\n\n'
         )
