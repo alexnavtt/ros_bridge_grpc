@@ -3,8 +3,8 @@
 # Make sure to run from the docker folder
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-mkdir mapped/side_A
-mkdir mapped/side_B
+mkdir -p mapped/side_A
+mkdir -p mapped/side_B
 eval "$(python3 ../scripts/set_env_params.py $ROS_BRIDGE_BUILD_CONFIG)"
 
 if [ -z "$(docker image ls | grep grpc_bridge_base:${ROS_BRIDGE_GRPC_SIDE_A_UBUNTU})" ]; then
