@@ -253,5 +253,8 @@ int main(int argc, char* argv[]) {
     const char* domain_id_str = std::getenv("ROS_DOMAIN_ID");
     const char* implementation_str = std::getenv("RMW_IMPLEMENTATION");
     RCLCPP_INFO(node->get_logger(), "Using\n\tROS_DISTRO: %s\n\tROS_DOMAIN_ID: %s\n\tRMW_IMPLEMENTATION: %s\n\tUID: %s", ros_distro_str, domain_id_str, implementation_str, uid.c_str());
-    rclcpp::spin(node);
+
+    auto mt_executor = rclcpp::executors::MultiThreadedExecutor{};
+    mt_executor.add_node(node);
+    mt_executor.spin();
 }

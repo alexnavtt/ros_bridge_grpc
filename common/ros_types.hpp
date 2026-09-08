@@ -49,6 +49,7 @@
     [&node, &topic, &callback, is_transient_local, is_best_effort] () { \
         rclcpp::SubscriptionOptionsWithAllocator<std::allocator<void>> opts; \
         opts.ignore_local_publications = true; \
+        opts.callback_group = node.create_callback_group(rclcpp::CallbackGroupType::Reentrant); \
         rclcpp::QoS qos(10); \
         if (is_transient_local) qos.transient_local(); \
         if (is_best_effort) qos.best_effort(); \
