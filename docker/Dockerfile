@@ -157,7 +157,7 @@ RUN source /opt/ros/${SIDE_B_DISTRO}/setup.bash \
     && echo "source /user_ws/devel/setup.bash || source /user_ws/install/setup.bash || true" >> ~/.profile
 
 # Copy the generated protoc and gRPC libraries
-COPY --from=grpc_bridge_base:focal /install /install
+COPY --from=side_b_grpc_base /install /install
 ENV PATH="/install/bin:$PATH"
 
 # Install dependencies for the script
