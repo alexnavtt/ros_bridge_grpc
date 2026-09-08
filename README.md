@@ -32,7 +32,7 @@ The package is designed to do the heavy work for you, so all you have to do is f
 side_A_distro: jazzy # side_A must always be ROS2
 side_B_distro: noetic
 
-msg_packages:
+packages:
     std_msgs/msg: [String]
     tf2_msgs/msg: [ALL]
     geometry_msgs/msg: [PoseWithCovarianceStamped]
