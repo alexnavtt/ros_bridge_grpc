@@ -107,7 +107,11 @@ RUN if [ "${SIDE_B_DISTRO}" == "noetic" ]; then \
 # Install system message types
 ARG SYSTEM_PACKAGES=""
 RUN apt update \
-    && if [ "${SIDE_B_DISTRO}" == "noetic" ]; then apt install -y python3-catkin-tools; fi \
+    && if [ "${SIDE_B_DISTRO}" == "noetic" ]; then \ 
+        apt install -y python3-catkin-tools; \
+    else \ 
+        apt install -y ros-${SIDE_B_DISTRO}-rmw-cyclonedds-cpp; \
+    fi \
     && apt install -y git python3-pip openssh-client \
     && if [ ! -z "${SYSTEM_PACKAGES}" ]; then \
         for pkg in ${SYSTEM_PACKAGES}; do\
